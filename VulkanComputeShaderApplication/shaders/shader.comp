@@ -34,6 +34,7 @@ layout (binding = 0) uniform ParameterUBO {
     vec4 camPos;
     vec4 bboxMin;
     vec4 bboxMax;
+    vec4 triangleCount;
 } ubo;
 
 layout(std140, binding = 1) readonly buffer RaySSBOIn {
@@ -178,10 +179,11 @@ struct SceneHit {
 void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
+    int trianglesCount = int(ubo.triangleCount.x); //add 三角形数量
 
     nearest.hit = false;
     nearest.distance = 1e10;
-
+    // 地板
     if (abs(dir.y) > MIN_EPSILON) {
         float t = -(orig.y + 4.0) / dir.y;
         if (t > MIN_EPSILON && t < nearest.distance) {
@@ -209,6 +211,32 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
             nearest.point = p;
             nearest.normal = normalize(p - spheres[i].center_radius.xyz);
             nearest.material = spheres[i].material;
+        }
+    }
+
+        vec3 invDir = 1.0 / dir;
+    if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
+
+        // 遍历所有三角形
+        for (int i = 0; i < trianglesCount; i++) {
+            Triangle tri = triangles[i];
+            float t;
+            vec3 hitPoint, hitNormal;
+
+            if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
+                if (t > MIN_EPSILON && t < nearest.distance) {
+                    hitPoint = orig + dir * t;
+                    nearest.hit = true;
+                    nearest.distance = t;
+                    nearest.point = hitPoint;
+                    nearest.normal = hitNormal;
+
+                    // 设置默认材质（你可以从模型中读取或传入）
+                    nearest.material.albedo = vec4(0.0, 0.0, 1.0, 0.0); // 只反射？
+                    nearest.material.diffuse_specular = vec4(0.8, 0.8, 0.8, 100.0); // 漫反射颜色 + 高光指数
+                    nearest.material.refractive = vec4(1.0, 0.0, 0.0, 0.0); // 折射率
+                }
+            }
         }
     }
 }

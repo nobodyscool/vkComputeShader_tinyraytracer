@@ -121,6 +121,7 @@ struct Triangle
 
 glm::vec4 bboxMin(FLT_MAX);
 glm::vec4 bboxMax(-FLT_MAX);
+glm::vec4 triangleCount = { 0,0,0,0 };// add 
 
 constexpr Material      ivory = { {0.9,  0.5, 0.1, 0.0}, {0.4, 0.4, 0.3, 50.0},  {1.0, 0.0, 0.0, 0.0} };
 constexpr Material      glass = { {0.0,  0.9, 0.1, 0.8}, {0.6, 0.7, 0.8, 125.0},  {1.5, 0.0, 0.0, 0.0} };
@@ -152,6 +153,7 @@ struct UniformBufferObject
 	glm::vec4 camPos;
 	glm::vec4 bboxMin;
 	glm::vec4 bboxMax;
+	glm::vec4 triangleCount;
 };
 
 struct Ray
@@ -1431,6 +1433,7 @@ private:
 			bboxMax = glm::max(bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
 		}
 		TRIANGLE_COUNT = triangles.size();
+		triangleCount.x = TRIANGLE_COUNT; // add 为三角形总数赋值
 
 		// TODO-finished
 		// create triangle buffer, 
@@ -1982,7 +1985,7 @@ private:
 		ubo.camPos = glm::vec4(cameraPos, 1.0f);
 		ubo.bboxMin = bboxMin;
 		ubo.bboxMax = bboxMax;
-
+		ubo.triangleCount = triangleCount; // add 三角形计数
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 
