@@ -875,7 +875,7 @@ private:
 		vkUnmapMemory(device, stagingBufferMemory);
 		stbi_image_free(pixels);
 
-		// TODO
+		// TODO-finished
 		// create background image
 		// hint: VK_FORMAT_R8G8B8A8_UNORM
 		// hint: transition image layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -977,7 +977,7 @@ private:
 
 		endSingleTimeCommands(commandBuffer);
 
-		// TODO
+		// TODO-finished
 		// create background image view
 		VkImageViewCreateInfo backgroundViewInfo = {};
 		backgroundViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
