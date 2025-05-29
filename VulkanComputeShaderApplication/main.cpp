@@ -1540,7 +1540,7 @@ private:
 			uniformBufferInfo.offset = 0;
 			uniformBufferInfo.range = sizeof(UniformBufferObject);
 
-			std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+			std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = computeDescriptorSets[i];
 			descriptorWrites[0].dstBinding = 0;
