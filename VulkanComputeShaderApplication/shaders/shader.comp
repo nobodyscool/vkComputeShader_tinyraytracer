@@ -68,7 +68,7 @@ bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bbo
     // TODO
     // implement the bbox intersect for optimization
 
-    return false;
+    return true;
 }
 
 vec3 custom_refract(vec3 I, vec3 N, float eta_out, float eta_in) {
@@ -214,7 +214,7 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
         }
     }
 
-        vec3 invDir = 1.0 / dir;
+    vec3 invDir = 1.0 / dir;
     if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
 
         // 遍历所有三角形
@@ -222,7 +222,6 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
             Triangle tri = triangles[i];
             float t;
             vec3 hitPoint, hitNormal;
-
             if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
                 if (t > MIN_EPSILON && t < nearest.distance) {
                     hitPoint = orig + dir * t;
@@ -231,10 +230,10 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
                     nearest.point = hitPoint;
                     nearest.normal = hitNormal;
 
-                    // 设置默认材质（你可以从模型中读取或传入）
-                    nearest.material.albedo = vec4(0.0, 0.0, 1.0, 0.0); // 只反射？
-                    nearest.material.diffuse_specular = vec4(0.8, 0.8, 0.8, 100.0); // 漫反射颜色 + 高光指数
-                    nearest.material.refractive = vec4(1.0, 0.0, 0.0, 0.0); // 折射率
+                    // 设置默认材质
+                    nearest.material.albedo = vec4(0.0, 0.5, 0.1, 0.8); 
+                    nearest.material.diffuse_specular = vec4(0.6, 0.7, 0.8, 125.0); // 漫反射颜色 + 高光指数
+                    nearest.material.refractive = vec4(1.5, 0.0, 0.0, 0.0); // 折射率
                 }
             }
         }
@@ -265,10 +264,8 @@ struct PathSegment {
 vec2 direction_to_uv(vec3 dir) {
     float theta = atan(dir.z, dir.x); // [-PI, PI]
     float phi = acos(dir.y);          // [0, PI]
-
     float u = (theta + PI) / (2.0 * PI); // [0, 1]
     float v = phi / PI;                 // [0, 1]
-
     return vec2(u, v);
 }
 
