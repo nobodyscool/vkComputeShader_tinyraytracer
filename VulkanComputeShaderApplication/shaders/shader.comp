@@ -174,6 +174,15 @@ struct PathSegment {
     int depth;
 };
 
+vec2 direction_to_uv(vec3 dir) {
+    float theta = atan(dir.z, dir.x); // [-PI, PI]
+    float phi = acos(dir.y);          // [0, PI]
+
+    float u = (theta + PI) / (2.0 * PI); // [0, 1]
+    float v = phi / PI;                 // [0, 1]
+
+    return vec2(u, v);
+}
 
 vec3 cast_ray(vec3 orig, vec3 dir) {
     // TODO
@@ -190,8 +199,15 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
 
         SceneHit hit;
         scene_intersect(segment.origin, segment.direction, hit);
+        // 未命中时从背景图采样颜色
+        // if (!hit.hit) {
+        //    color += segment.throughput * BACKGROUND_COLOR;
+        //     continue;
+        // }
         if (!hit.hit) {
-            color += segment.throughput * BACKGROUND_COLOR;
+            vec2 uv = direction_to_uv(segment.direction);
+            vec3 bg_color = texture(backgroundImage, uv).rgb;
+            color += segment.throughput * bg_color;
             continue;
         }
 
