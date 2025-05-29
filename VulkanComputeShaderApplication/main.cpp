@@ -119,6 +119,15 @@ struct Triangle
 	Material material;
 };
 
+// add 新增结构体便于多个模型的导入的绘制
+struct Model
+{
+	std::vector<Triangle> triangles;
+	glm::vec4 triangleCount;
+	glm::vec3 bboxMin, bboxMax;
+	Material material;
+};
+
 glm::vec4 bboxMin(FLT_MAX);
 glm::vec4 bboxMax(-FLT_MAX);
 glm::vec4 triangleCount = { 0,0,0,0 };// add 
@@ -1429,6 +1438,7 @@ private:
 		std::vector<Triangle> triangles = loadObjAsTriangles("assets/duck.obj", glass);
 		for (const Triangle& tri : triangles)
 		{
+			// 计算包围盒
 			bboxMin = glm::min(bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
 			bboxMax = glm::max(bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
 		}
