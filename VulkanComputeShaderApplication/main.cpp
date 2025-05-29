@@ -1436,6 +1436,9 @@ private:
 
 		// Triangle buffer
 		std::vector<Triangle> triangles = loadObjAsTriangles("assets/duck.obj", glass);
+
+		//add 物体做几何变换
+
 		for (const Triangle& tri : triangles)
 		{
 			// 计算包围盒
