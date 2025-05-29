@@ -200,17 +200,13 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
         SceneHit hit;
         scene_intersect(segment.origin, segment.direction, hit);
         // 未命中时从背景图采样颜色
-        // if (!hit.hit) {
-        //    color += segment.throughput * BACKGROUND_COLOR;
-        //     continue;
-        // }
         if (!hit.hit) {
             vec2 uv = direction_to_uv(segment.direction);
             vec3 bg_color = texture(backgroundImage, uv).rgb;
             color += segment.throughput * bg_color;
             continue;
         }
-
+      
         vec3 p = hit.point;
         vec3 n = hit.normal;
         vec3 v = -segment.direction;

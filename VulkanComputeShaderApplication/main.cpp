@@ -1432,9 +1432,40 @@ private:
 		}
 		TRIANGLE_COUNT = triangles.size();
 
-		// TODO
+		// TODO-finished
 		// create triangle buffer, 
 		// hint: Ref to Ray buffer implemention above
+		// Triangle buffer
+		VkDeviceSize triangleBufferSize = sizeof(Triangle) * triangles.size();
+
+		VkBuffer triangleStagingBuffer;
+		VkDeviceMemory triangleStagingBufferMemory;
+		createBuffer(triangleBufferSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			triangleStagingBuffer, triangleStagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, triangleStagingBufferMemory, 0, triangleBufferSize, 0, &data);
+		memcpy(data, triangles.data(), (size_t)triangleBufferSize);
+		vkUnmapMemory(device, triangleStagingBufferMemory);
+
+		// 创建多个 Triangle 缓冲区（每帧一个）
+		shaderStorageTriangleBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		shaderStorageTriangleBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			createBuffer(triangleBufferSize,
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				shaderStorageTriangleBuffers[i], shaderStorageTriangleBuffersMemory[i]);
+
+			copyBuffer(triangleStagingBuffer, shaderStorageTriangleBuffers[i], triangleBufferSize);
+		}
+
+		vkDestroyBuffer(device, triangleStagingBuffer, nullptr);
+		vkFreeMemory(device, triangleStagingBufferMemory, nullptr);
 	}
 
 	void createUniformBuffers()
