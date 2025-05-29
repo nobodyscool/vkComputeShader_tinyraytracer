@@ -1011,10 +1011,31 @@ private:
 			throw std::runtime_error("failed to create texture sampler!");
 		}
 
-		// TODO
+		// TODO-finished
 		// create background image sampler
 		// hint: VK_FILTER_LINEAR
 		// hint: VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+		VkSamplerCreateInfo backgroundSamplerInfo{};
+		backgroundSamplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		backgroundSamplerInfo.magFilter = VK_FILTER_LINEAR;  // 放大时使用线性滤波
+		backgroundSamplerInfo.minFilter = VK_FILTER_LINEAR;  // 缩小时使用线性滤波
+		backgroundSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // 使用线性 mipmapping
+		backgroundSamplerInfo.addressModeU = backgroundSamplerInfo.addressModeV = backgroundSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // 边界处理
+		backgroundSamplerInfo.anisotropyEnable = VK_FALSE;   // 可选：开启各向异性过滤（需要设备支持）
+		backgroundSamplerInfo.maxAnisotropy = 1.0f;          // 如果开启，可设为更高值如 16.0f
+		backgroundSamplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // 超出范围的像素返回黑色
+		backgroundSamplerInfo.unnormalizedCoordinates = VK_FALSE; // 使用归一化坐标 [0,1]
+		backgroundSamplerInfo.compareEnable = VK_FALSE;
+		backgroundSamplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		backgroundSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		backgroundSamplerInfo.mipLodBias = 0.0f;
+		backgroundSamplerInfo.minLod = 0.0f;
+		backgroundSamplerInfo.maxLod = 0.0f;
+
+		if (vkCreateSampler(device, &backgroundSamplerInfo, nullptr, &backgroundImageSampler) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create background texture sampler!");
+		}
 	}
 
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
