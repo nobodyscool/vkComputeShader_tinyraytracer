@@ -1445,9 +1445,9 @@ private:
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 			triangleStagingBuffer, triangleStagingBufferMemory);
 
-		void* data;
-		vkMapMemory(device, triangleStagingBufferMemory, 0, triangleBufferSize, 0, &data);
-		memcpy(data, triangles.data(), (size_t)triangleBufferSize);
+		void* data0;
+		vkMapMemory(device, triangleStagingBufferMemory, 0, triangleBufferSize, 0, &data0);
+		memcpy(data0, triangles.data(), (size_t)triangleBufferSize);
 		vkUnmapMemory(device, triangleStagingBufferMemory);
 
 		// 创建多个 Triangle 缓冲区（每帧一个）
@@ -1571,7 +1571,7 @@ private:
 			uniformBufferInfo.offset = 0;
 			uniformBufferInfo.range = sizeof(UniformBufferObject);
 
-			std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
+			std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = computeDescriptorSets[i];
 			descriptorWrites[0].dstBinding = 0;
@@ -1637,12 +1637,25 @@ private:
 			descriptorWrites[4].pImageInfo = &backgroundImageDescriptor;
 
 
-			// TODO 
+			// TODO-finished
 			// update triangle buffer
 			// hint: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			// hint: see createComputeDescriptorSetLayout function for reference
+			// Binding 5: Triangle Storage Buffer
+			VkDescriptorBufferInfo triangleBufferInfo{};
+			triangleBufferInfo.buffer = shaderStorageTriangleBuffers[i]; // 每帧使用自己的缓冲区
+			triangleBufferInfo.offset = 0;
+			triangleBufferInfo.range = sizeof(Triangle) * TRIANGLE_COUNT;  // 所有三角形的数据大小
 
-			vkUpdateDescriptorSets(device, 5, descriptorWrites.data(), 0, nullptr);
+			descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[5].dstSet = computeDescriptorSets[i];
+			descriptorWrites[5].dstBinding = 5;
+			descriptorWrites[5].dstArrayElement = 0;
+			descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			descriptorWrites[5].descriptorCount = 1;
+			descriptorWrites[5].pBufferInfo = &triangleBufferInfo;
+
+			vkUpdateDescriptorSets(device, 6, descriptorWrites.data(), 0, nullptr);
 		}
 	}
 
