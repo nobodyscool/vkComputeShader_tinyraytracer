@@ -260,6 +260,22 @@ bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
             return true;
         }
     }
+
+    vec3 invDir = 1.0 / dir;
+    if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
+        for (int i = 0; i < int(ubo.triangleCount.x); i++) {
+            Triangle tri = triangles[i];
+            float t;
+            vec3 normal;
+
+            if (ray_triangle_intersect(orig, dir, tri, t, normal)) {
+                if (t > MIN_EPSILON && t < max_dist) {
+                    return true; // 被三角形挡住
+                }
+            }
+        }
+    }
+
     return false;
 }
 
