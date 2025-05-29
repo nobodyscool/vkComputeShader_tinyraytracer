@@ -1588,17 +1588,30 @@ private:
 			descriptorWrites[3].pImageInfo = &imageDescriptor;
 
 
-			// TODO 
+			// TODO-finished 
 			// update background image
 			// hint: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 			// hint: see createComputeDescriptorSetLayout function for reference
+			VkDescriptorImageInfo backgroundImageDescriptor = {};
+			backgroundImageDescriptor.imageView = backgroundImageView;
+			backgroundImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			backgroundImageDescriptor.sampler = backgroundImageSampler;
+
+			descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[4].dstSet = computeDescriptorSets[i];
+			descriptorWrites[4].dstBinding = 4; // layout(binding=4) in shader
+			descriptorWrites[4].dstArrayElement = 0;
+			descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[4].descriptorCount = 1;
+			descriptorWrites[4].pImageInfo = &backgroundImageDescriptor;
+
 
 			// TODO 
 			// update triangle buffer
 			// hint: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 			// hint: see createComputeDescriptorSetLayout function for reference
 
-			vkUpdateDescriptorSets(device, 4, descriptorWrites.data(), 0, nullptr);
+			vkUpdateDescriptorSets(device, 5, descriptorWrites.data(), 0, nullptr);
 		}
 	}
 
