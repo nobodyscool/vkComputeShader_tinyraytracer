@@ -1,4 +1,4 @@
-#version 450
+﻿#version 450
 
 struct Material {
     vec4 albedo;          
@@ -88,9 +88,69 @@ bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, out float t, out 
     // TODO
     // implement the triangle intersect
 
+    vec3 v0 = tri.v0.xyz;
+    vec3 v1 = tri.v1.xyz;
+    vec3 v2 = tri.v2.xyz;
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    // 计算光线方向和第一个边的叉积（P）
+    vec3 h = cross(dir, edge2);
+    float a = dot(edge1, h);
+    // 如果 a 接近 0，光线和平面平行
+    if (a > -MIN_EPSILON && a < MIN_EPSILON) {
+        return false;
+    }
+    float f = 1.0 / a;
+    // 计算从原点到顶点的向量
+    vec3 s = orig - v0;
+    // 计算 u 参数
+    float u = f * dot(s, h);
+    if (u < 0.0 || u > 1.0) {
+        return false;
+    }
+    // 计算第二个叉积（Q）
+    vec3 q = cross(s, edge1);
+    // 计算 v 参数
+    float v = f * dot(dir, q);
+    if (v < 0.0 || u + v > 1.0) {
+        return false;
+    }
+    // 计算交点距离 t
+    t = f * dot(edge2, q);
+    if (t > MIN_EPSILON) {
+        // 光线确实击中了三角形
+        normal = normalize(cross(edge1, edge2)); // 三角形法线
+        return true;
+    }
+
     return false;
 }
+bool ray_triangle_intersect_my(vec3 orig, vec3 dir, Triangle tri, out float t, out vec3 normal) {
+    // Möller–Trumbore 算法
+    vec3 v0 = tri.v0.xyz;
+    vec3 v1 = tri.v1.xyz;
+    vec3 v2 = tri.v2.xyz;
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    vec3 S = orig - v0;
+    vec3 S1 = cross(dir,edge2);
+    vec3 S2 = cross(S,edge1);
 
+    float a = dot(S1, edge1);
+    if (a > -MIN_EPSILON && a < MIN_EPSILON){
+        return false;
+    }
+    float coeff = 1.0 / a;
+    float t0 = coeff * dot(S2, edge2);
+    float b1 = coeff * dot(S1, S);  // 重心坐标u
+    float b2 = coeff * dot(S2, dir); // 重心坐标v
+    if (t0 >= MIN_EPSILON && b1 >= 0.0 && b2 >= 0.0 && (b1 + b2) >= 1.0){
+       t = t0;
+       normal = normalize(cross(edge1, edge2)); // 三角形法线
+       return true;
+    }
+    return false;
+}
 
 bool ray_sphere_intersect(vec3 orig, vec3 dir, Sphere s, out float t) {
     vec3 L = s.center_radius.xyz - orig;
@@ -185,7 +245,7 @@ vec2 direction_to_uv(vec3 dir) {
 }
 
 vec3 cast_ray(vec3 orig, vec3 dir) {
-    // TODO
+    // TODO-finished
     // You need to modify this function to add background
 
     vec3 color = vec3(0.0);
@@ -199,7 +259,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
 
         SceneHit hit;
         scene_intersect(segment.origin, segment.direction, hit);
-        // δ����ʱ�ӱ���ͼ������ɫ
+        // 未命中时从背景图采样颜色
         if (!hit.hit) {
             vec2 uv = direction_to_uv(segment.direction);
             vec3 bg_color = texture(backgroundImage, uv).rgb;
