@@ -65,8 +65,18 @@ const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
 
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
-    // TODO
+    // TODO-finished
     // implement the bbox intersect for optimization
+    vec3 t0 = (bboxMin - orig) * invDir;
+    vec3 t1 = (bboxMax - orig) * invDir;
+
+    vec3 tmin = min(t0, t1);
+    vec3 tmax = max(t0, t1);
+
+    float tNear = max(max(tmin.x, tmin.y), tmin.z);
+    float tFar  = min(min(tmax.x, tmax.y), tmax.z);
+
+    return tNear <= tFar && tFar > MIN_EPSILON;
 
     return true;
 }
@@ -216,7 +226,6 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
 
     vec3 invDir = 1.0 / dir;
     if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
-
         // 遍历所有三角形
         for (int i = 0; i < trianglesCount; i++) {
             Triangle tri = triangles[i];
