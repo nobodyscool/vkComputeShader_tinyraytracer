@@ -58,12 +58,12 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 const int MAX_DEPTH = 20;
 const int MAX_STACK_SIZE = MAX_DEPTH * 2 ;
 const vec3 BACKGROUND_COLOR = vec3(0.2, 0.7, 0.8);
-const float MIN_EPSILON = 0.001;
+const float MIN_EPSILON = 0.00001;
 const int WIDTH = 1024;
 const int HEIGHT = 768;
 const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
-
+const bool draw_sphere = false;
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
     // TODO-finished
     // implement the bbox intersect for optimization
@@ -211,19 +211,20 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
         }
     }
 
-    Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
-    for (int i = 0; i < 4; i++) {
-        float t = 1e10;
-        if (ray_sphere_intersect(orig, dir, spheres[i], t) && t < nearest.distance) {
-            vec3 p = orig + dir * t;
-            nearest.hit = true;
-            nearest.distance = t;
-            nearest.point = p;
-            nearest.normal = normalize(p - spheres[i].center_radius.xyz);
-            nearest.material = spheres[i].material;
+    if(draw_sphere){
+        Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
+        for (int i = 0; i < 4; i++) {
+            float t = 1e10;
+            if (ray_sphere_intersect(orig, dir, spheres[i], t) && t < nearest.distance) {
+                vec3 p = orig + dir * t;
+                nearest.hit = true;
+                nearest.distance = t;
+                nearest.point = p;
+                nearest.normal = normalize(p - spheres[i].center_radius.xyz);
+                nearest.material = spheres[i].material;
+            }
         }
     }
-
     vec3 invDir = 1.0 / dir;
     if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
         // 遍历所有三角形
@@ -249,15 +250,15 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
 bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
-
-    Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
-    for (int i = 0; i < 4; i++) {
-        float t = 1e10;
-        if (ray_sphere_intersect(orig, dir, spheres[i], t) && t < max_dist) {
-            return true;
+    if(draw_sphere){
+        Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
+        for (int i = 0; i < 4; i++) {
+            float t = 1e10;
+            if (ray_sphere_intersect(orig, dir, spheres[i], t) && t < max_dist) {
+                return true;
+            }
         }
     }
-
     vec3 invDir = 1.0 / dir;
     if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
         for (int i = 0; i < int(ubo.triangleCount.x); i++) {

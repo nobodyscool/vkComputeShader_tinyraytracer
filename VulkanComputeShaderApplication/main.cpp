@@ -122,9 +122,11 @@ struct Triangle
 // add 新增结构体便于多个模型的导入的绘制
 struct Model
 {
-	std::vector<Triangle> triangles;
+	int startIndex;     // 起始索引
+	int count;          // 三角形数量
+	glm::vec2 pad;
 	glm::vec4 triangleCount;
-	glm::vec3 bboxMin, bboxMax;
+	glm::vec4 bboxMin, bboxMax;
 	Material material;
 };
 
@@ -133,9 +135,15 @@ glm::vec4 bboxMax(-FLT_MAX);
 glm::vec4 triangleCount = { 0,0,0,0 };// add 
 
 constexpr Material      ivory = { {0.9,  0.5, 0.1, 0.0}, {0.4, 0.4, 0.3, 50.0},  {1.0, 0.0, 0.0, 0.0} };
+
 constexpr Material      glass = { {0.0,  0.9, 0.1, 0.8}, {0.6, 0.7, 0.8, 125.0},  {1.5, 0.0, 0.0, 0.0} };
+
 constexpr Material red_rubber = { {1.4,  0.3, 0.0, 0.0}, {0.3, 0.1, 0.1, 10.0},  {1.0, 0.0, 0.0, 0.0} };
 constexpr Material     mirror = { {0.0, 16.0, 0.8, 0.0}, {1.0, 1.0, 1.0, 1425.0}, {1.0, 0.0, 0.0, 0.0} };
+constexpr Material fudan_logo = { {0.7, 0.3, 0.0, 0.0}, {0.235294, 0.130719, 0.078431, 10.0}, {1.0, 0.0, 0.0, 0.0} };
+
+
+
 
 constexpr Sphere spheres[] = {
 	{{-3,    0,   -16, 2},      ivory},
@@ -197,6 +205,30 @@ struct Ray
 
 std::vector<Ray> rays(WIDTH* HEIGHT + 1);
 
+void transformTriangles(std::vector<Triangle>& triangles,int startIndex,int count,const glm::vec3& scale,const glm::vec3& rotation,const glm::vec3& translation)
+{
+	// 创建模型变换矩阵
+	glm::mat4 model = glm::mat4(1.0f);
+
+	// 1. 缩放
+	model = glm::scale(model, scale);
+
+	// 2. 旋转（XYZ 顺序）
+	model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+	model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+	model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0, 0, 1));
+
+	// 3. 平移
+	model = glm::translate(model, translation);
+
+	// 应用到每个三角形
+	int endIndex = startIndex + count;
+	for (int i = startIndex; i < endIndex && i < (int)triangles.size(); ++i) {
+		triangles[i].v0 = model * triangles[i].v0;
+		triangles[i].v1 = model * triangles[i].v1;
+		triangles[i].v2 = model * triangles[i].v2;
+	}
+}
 
 class ComputeShaderApplication
 {
@@ -1431,14 +1463,23 @@ private:
 			copyBuffer(rayStagingBuffer, shaderStorageRayBuffers[i], rayBufferSize);
 		}
 
-		vkDestroyBuffer(device, rayStagingBuffer, nullptr);
 		vkFreeMemory(device, rayStagingBufferMemory, nullptr);
 
 		// Triangle buffer
-		std::vector<Triangle> triangles = loadObjAsTriangles("assets/duck.obj", glass);
+		//std::vector<Triangle> triangles = loadObjAsTriangles("assets/fudanlogo-mesh.obj", fudan_logo);
+		std::vector<Triangle> triangles = loadObjAsTriangles("assets/venus-mesh.obj", red_rubber);
+
 
 		//add 物体做几何变换
+		//glm::vec3 scale(0.3f, 0.3f, 0.3f); // 缩放
+		//glm::vec3 rotation(90.0f, 0.0f, 0.0f); // 旋转（X轴 90°）
+		glm::vec3 translation(100.0f, 111.0f, 1000.0f);  // 平移
 
+
+		glm::vec3 scale(1.0f, 1.0f, 1.0f); // 缩放
+		glm::vec3 rotation(0.0f, 0.0f, 0.0f); // 旋转（X轴 90°）
+		//glm::vec3 translation(0.0f, 0.0f, 0.0f);  // 平移
+		transformTriangles(triangles, 0, triangles.size(), scale, rotation, translation);
 		for (const Triangle& tri : triangles)
 		{
 			// 计算包围盒
