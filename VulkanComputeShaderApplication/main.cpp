@@ -27,6 +27,7 @@
 #include <random>
 #include <cmath>
 
+#include "config.hpp"
 const bool preferHighPerformanceGPU = true;
 
 using Clock = std::chrono::high_resolution_clock;
@@ -96,53 +97,17 @@ struct SwapChainSupportDetails
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
 };
-
-
-struct Material
-{
-	glm::vec4 albedo = { 2,0,0,0 };
-	glm::vec4 diffuse_color_specular_exponent = { 0,0,0,0 };
-	glm::vec4 refractive_index = { 1.0, 0, 0, 0 };
-};
-
-struct Sphere
-{
-	glm::vec4 center_radius;
-	Material material;
-};
-
-struct Triangle
-{
-	glm::vec4 v0;
-	glm::vec4 v1;
-	glm::vec4 v2;
-	Material material;
-};
-
-// add 新增结构体便于多个模型的导入的绘制
-struct Model
-{
-	int startIndex;     // 起始索引
-	int count;          // 三角形数量
-	glm::vec2 pad;
-	glm::vec4 triangleCount;
-	glm::vec4 bboxMin, bboxMax;
-	Material material;
-};
-
 glm::vec4 bboxMin(FLT_MAX);
 glm::vec4 bboxMax(-FLT_MAX);
 glm::vec4 triangleCount = { 0,0,0,0 };// add 
 
+
 constexpr Material ivory = { {0.9,  0.5, 0.1, 0.0}, {0.4, 0.4, 0.3, 50.0},  {1.0, 0.0, 0.0, 0.0} };
-
 constexpr Material glass = { {0.0,  0.9, 0.1, 0.8}, {0.6, 0.7, 0.8, 125.0},  {1.5, 0.0, 0.0, 0.0} };
-
 constexpr Material red_rubber = { {1.4,  0.3, 0.0, 0.0}, {0.3, 0.1, 0.1, 10.0},  {1.0, 0.0, 0.0, 0.0} };
 constexpr Material mirror = { {0.0, 16.0, 0.8, 0.0}, {1.0, 1.0, 1.0, 1425.0}, {1.0, 0.0, 0.0, 0.0} };
 constexpr Material mirror_venus = { {0.0, 16.0, 0.8, 0.0}, {1.0, 1.0, 1.0, 1425.0}, {1.0, 0.0, 0.0, 0.0} };
 constexpr Material fudan_logo = { {0.7, 0.3, 0.0, 0.0}, {0.235294, 0.130719, 0.078431, 10.0}, {1.0, 0.0, 0.0, 0.0} };
-
 
 
 
@@ -206,8 +171,20 @@ struct Ray
 
 std::vector<Ray> rays(WIDTH* HEIGHT + 1);
 
+
 void transformTriangles(std::vector<Triangle>& triangles,int startIndex,int count,const glm::vec3& scale,const glm::vec3& rotation,const glm::vec3& translation)
 {
+/**
+ * @brief 模型变换
+ *
+ *
+ * @param triangles 三角形在总数组
+ * @param startIndex 变换的三角形在总数组中的起始索引
+ * @param count 变换的三角形个数
+ * @param scale 缩放参数
+ * @param rotation 旋转参数
+ * @param translation 平移参数
+ */
 	// 创建模型变换矩阵
 	glm::mat4 model = glm::mat4(1.0f);
 
@@ -1462,8 +1439,8 @@ private:
 		vkFreeMemory(device, rayStagingBufferMemory, nullptr);
 
 		// Triangle buffer
-		std::vector<Triangle> triangles = loadObjAsTriangles("assets/venus-mesh.obj", mirror_venus);
-		//std::vector<Triangle> triangles = loadObjAsTriangles("assets/duck.obj", glass);
+		//std::vector<Triangle> triangles = loadObjAsTriangles("assets/venus-mesh.obj", mirror_venus);
+		std::vector<Triangle> triangles = loadObjAsTriangles("assets/duck.obj", glass);
 
 
 		//add 物体做几何变换

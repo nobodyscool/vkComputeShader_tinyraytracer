@@ -514,6 +514,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="geometry.hpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders\shader.frag">
