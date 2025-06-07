@@ -23,6 +23,17 @@ struct Triangle {
     Material material;
 };
 
+struct Model
+{	// 为了满足std140 布局的对齐规则将前三个参数整合到params0中
+	ivec4 params0; // x=startIndex, y=count, z=normalinterpolatio (0/1), w=padding
+	//int startIndex:起始索引
+	//int count:三角形数量
+	//bool normalinterpolatio:是否启动表面平滑
+	vec4 bboxMin;
+	vec4 bboxMax;
+	Material material;
+};
+
 layout (binding = 0) uniform ParameterUBO {
     Sphere sphere0;
     Sphere sphere1;
@@ -35,6 +46,7 @@ layout (binding = 0) uniform ParameterUBO {
     vec4 bboxMin;
     vec4 bboxMax;
     vec4 triangleCount;
+    vec4 modelCount;
 } ubo;
 
 layout(std140, binding = 1) readonly buffer RaySSBOIn {
@@ -53,6 +65,10 @@ layout(std140, binding = 5) readonly buffer TriangleSSBO {
     Triangle triangles[];
 };
 
+layout(std140, binding = 6) readonly buffer ModelSSBO {
+    Model models[];
+};
+
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 const int MAX_DEPTH = 20;
@@ -64,6 +80,7 @@ const int HEIGHT = 768;
 const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
 const bool draw_sphere = false;
+
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
     // TODO-finished
     // implement the bbox intersect for optimization
@@ -250,6 +267,7 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
 bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
+
     if(draw_sphere){
         Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
         for (int i = 0; i < 4; i++) {

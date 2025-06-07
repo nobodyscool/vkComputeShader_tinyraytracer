@@ -41,7 +41,7 @@ const uint32_t LOCAL_SIZE_Y = 16;
 
 const uint32_t RAY_COUNT = WIDTH * HEIGHT;
 uint32_t TRIANGLE_COUNT = 0;
-
+uint32_t MODEL_COUNT = 0;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::vector<const char*> validationLayers = {
@@ -100,14 +100,12 @@ struct SwapChainSupportDetails
 glm::vec4 bboxMin(FLT_MAX);
 glm::vec4 bboxMax(-FLT_MAX);
 glm::vec4 triangleCount = { 0,0,0,0 };// add 
-
+glm::vec4 modelCount = { 0,0,0,0 };// add 
 
 constexpr Material ivory = { {0.9,  0.5, 0.1, 0.0}, {0.4, 0.4, 0.3, 50.0},  {1.0, 0.0, 0.0, 0.0} };
 constexpr Material glass = { {0.0,  0.9, 0.1, 0.8}, {0.6, 0.7, 0.8, 125.0},  {1.5, 0.0, 0.0, 0.0} };
 constexpr Material red_rubber = { {1.4,  0.3, 0.0, 0.0}, {0.3, 0.1, 0.1, 10.0},  {1.0, 0.0, 0.0, 0.0} };
 constexpr Material mirror = { {0.0, 16.0, 0.8, 0.0}, {1.0, 1.0, 1.0, 1425.0}, {1.0, 0.0, 0.0, 0.0} };
-constexpr Material mirror_venus = { {0.0, 16.0, 0.8, 0.0}, {1.0, 1.0, 1.0, 1425.0}, {1.0, 0.0, 0.0, 0.0} };
-constexpr Material fudan_logo = { {0.7, 0.3, 0.0, 0.0}, {0.235294, 0.130719, 0.078431, 10.0}, {1.0, 0.0, 0.0, 0.0} };
 
 
 
@@ -137,6 +135,7 @@ struct UniformBufferObject
 	glm::vec4 bboxMin;
 	glm::vec4 bboxMax;
 	glm::vec4 triangleCount;
+	glm::vec4 modelCount;
 };
 
 struct Ray
@@ -172,15 +171,13 @@ struct Ray
 std::vector<Ray> rays(WIDTH* HEIGHT + 1);
 
 
-void transformTriangles(std::vector<Triangle>& triangles,int startIndex,int count,const glm::vec3& scale,const glm::vec3& rotation,const glm::vec3& translation)
+void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,const glm::vec3& rotation,const glm::vec3& translation)
 {
 /**
  * @brief 模型变换
  *
  *
  * @param triangles 三角形在总数组
- * @param startIndex 变换的三角形在总数组中的起始索引
- * @param count 变换的三角形个数
  * @param scale 缩放参数
  * @param rotation 旋转参数
  * @param translation 平移参数
@@ -195,8 +192,8 @@ void transformTriangles(std::vector<Triangle>& triangles,int startIndex,int coun
 	model = glm::scale(model, scale);
 
 	// 应用到每个三角形
-	int endIndex = startIndex + count;
-	for (int i = startIndex; i < endIndex && i < (int)triangles.size(); ++i) {
+
+	for (int i = 0; i < (int)triangles.size(); ++i) {
 		triangles[i].v0 = model * triangles[i].v0;
 		triangles[i].v1 = model * triangles[i].v1;
 		triangles[i].v2 = model * triangles[i].v2;
@@ -263,6 +260,9 @@ private:
 	std::vector<VkBuffer> shaderStorageTriangleBuffers;
 	std::vector<VkDeviceMemory> shaderStorageTriangleBuffersMemory;
 
+	// 管理多个模型包围盒的数据
+	std::vector<VkBuffer> shaderStorageModelBuffers;
+	std::vector<VkDeviceMemory> shaderStorageModelBuffersMemory;
 
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -1160,7 +1160,7 @@ private:
 
 	void createComputeDescriptorSetLayout()
 	{
-		std::array<VkDescriptorSetLayoutBinding, 6> layoutBindings{};
+		std::array<VkDescriptorSetLayoutBinding, 7> layoutBindings{};
 		layoutBindings[0].binding = 0;
 		layoutBindings[0].descriptorCount = 1;
 		layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1197,10 +1197,17 @@ private:
 		layoutBindings[5].pImmutableSamplers = nullptr;
 		layoutBindings[5].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+		// Binding 6: Storage Buffer (Models)
+		layoutBindings[6].binding = 6;
+		layoutBindings[6].descriptorCount = 1;
+		layoutBindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		layoutBindings[6].pImmutableSamplers = nullptr;
+		layoutBindings[6].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 6;
+		layoutInfo.bindingCount = 7;
 		layoutInfo.pBindings = layoutBindings.data();
 
 		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS)
@@ -1439,32 +1446,46 @@ private:
 		vkFreeMemory(device, rayStagingBufferMemory, nullptr);
 
 		// Triangle buffer
-		//std::vector<Triangle> triangles = loadObjAsTriangles("assets/venus-mesh.obj", mirror_venus);
-		std::vector<Triangle> triangles = loadObjAsTriangles("assets/duck.obj", glass);
+		std::vector<Triangle> triangles = {};
+		std::vector<Model> models = {};
 
+		for (auto it = modelList.begin(); it != modelList.end(); ++it) {
+			Model& model = it->model;
+			const std::string& filename = it->filename;
+			const glm::vec3& scale = it->scale;
+			const glm::vec3& rotation = it->rotation;
+			const glm::vec3& translation = it->translation;
+			std::vector<Triangle> modelTriangles = loadObjAsTriangles(filename, model.material);
+			// 做模型变换
+			transformTriangles(modelTriangles, scale, rotation, translation);
+			// 计算包围盒
+			for (const Triangle& tri : modelTriangles){
+				model.bboxMin = glm::min(model.bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
+				model.bboxMax = glm::max(model.bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
+			}
+			// 将 modelTriangles 追加到 triangles 后面
+			triangles.insert(triangles.end(), modelTriangles.begin(), modelTriangles.end());
+			model.params0.x = static_cast<int>(triangles.size());   // 起始索引
+			model.params0.y = static_cast<int>(modelTriangles.size()); // 三角形数量
 
-		//add 物体做几何变换
-		glm::vec3 scale(5.5f, 5.5f, 5.5f); // 缩放
-		glm::vec3 rotation(0.0f, 0.0f, 0.0f); // 旋转（X轴 90°）
-		glm::vec3 translation(-1.0f, 2.0f, -19.0f);  // 平移
-
-
-		transformTriangles(triangles, 0, triangles.size(), scale, rotation, translation);
+			models.push_back(model);
+		}
+		// 计算包围盒
 		for (const Triangle& tri : triangles)
 		{
-			// 计算包围盒
 			bboxMin = glm::min(bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
 			bboxMax = glm::max(bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
 		}
 		TRIANGLE_COUNT = triangles.size();
 		triangleCount.x = TRIANGLE_COUNT; // add 为三角形总数赋值
+		MODEL_COUNT = models.size();
+		modelCount.x = MODEL_COUNT;
 
 		// TODO-finished
 		// create triangle buffer, 
 		// hint: Ref to Ray buffer implemention above
 		// Triangle buffer
 		VkDeviceSize triangleBufferSize = sizeof(Triangle) * triangles.size();
-
 		VkBuffer triangleStagingBuffer;
 		VkDeviceMemory triangleStagingBufferMemory;
 		createBuffer(triangleBufferSize,
@@ -1490,9 +1511,37 @@ private:
 
 			copyBuffer(triangleStagingBuffer, shaderStorageTriangleBuffers[i], triangleBufferSize);
 		}
-
 		vkDestroyBuffer(device, triangleStagingBuffer, nullptr);
 		vkFreeMemory(device, triangleStagingBufferMemory, nullptr);
+
+		// Model buffer
+		VkDeviceSize modelBufferSize = sizeof(Model) * models.size();
+		VkBuffer modelStagingBuffer;
+		VkDeviceMemory modelStagingBufferMemory;
+		createBuffer(modelBufferSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			modelStagingBuffer, modelStagingBufferMemory);
+
+		void* data1;
+		vkMapMemory(device, modelStagingBufferMemory, 0, modelBufferSize, 0, &data1);
+		memcpy(data1, models.data(), (size_t)modelBufferSize);
+		vkUnmapMemory(device, modelStagingBufferMemory);
+
+		shaderStorageModelBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		shaderStorageModelBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			createBuffer(modelBufferSize,
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				shaderStorageModelBuffers[i], shaderStorageModelBuffersMemory[i]);
+
+			copyBuffer(modelStagingBuffer, shaderStorageModelBuffers[i], modelBufferSize);
+		}
+		vkDestroyBuffer(device, modelStagingBuffer, nullptr);
+		vkFreeMemory(device, modelStagingBufferMemory, nullptr);
 	}
 
 	void createUniformBuffers()
@@ -1598,7 +1647,7 @@ private:
 			uniformBufferInfo.offset = 0;
 			uniformBufferInfo.range = sizeof(UniformBufferObject);
 
-			std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
+			std::array<VkWriteDescriptorSet, 7> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = computeDescriptorSets[i];
 			descriptorWrites[0].dstBinding = 0;
@@ -1682,7 +1731,21 @@ private:
 			descriptorWrites[5].descriptorCount = 1;
 			descriptorWrites[5].pBufferInfo = &triangleBufferInfo;
 
-			vkUpdateDescriptorSets(device, 6, descriptorWrites.data(), 0, nullptr);
+			// update model buffer
+			VkDescriptorBufferInfo modelBufferInfo{};
+			modelBufferInfo.buffer = shaderStorageModelBuffers[i];
+			modelBufferInfo.offset = 0;
+			modelBufferInfo.range = sizeof(Model) * MODEL_COUNT;
+
+			descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[6].dstSet = computeDescriptorSets[i];
+			descriptorWrites[6].dstBinding = 6;
+			descriptorWrites[6].dstArrayElement = 0;
+			descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			descriptorWrites[6].descriptorCount = 1;
+			descriptorWrites[6].pBufferInfo = &modelBufferInfo;
+
+			vkUpdateDescriptorSets(device, 7, descriptorWrites.data(), 0, nullptr);
 		}
 	}
 
@@ -2010,6 +2073,7 @@ private:
 		ubo.bboxMin = bboxMin;
 		ubo.bboxMax = bboxMax;
 		ubo.triangleCount = triangleCount; // add 三角形计数
+		ubo.modelCount = modelCount;
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 
