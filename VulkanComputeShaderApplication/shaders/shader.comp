@@ -153,32 +153,7 @@ bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, out float t, out 
 
     return false;
 }
-bool ray_triangle_intersect_my(vec3 orig, vec3 dir, Triangle tri, out float t, out vec3 normal) {
-    // Möller–Trumbore 算法
-    vec3 v0 = tri.v0.xyz;
-    vec3 v1 = tri.v1.xyz;
-    vec3 v2 = tri.v2.xyz;
-    vec3 edge1 = v1 - v0;
-    vec3 edge2 = v2 - v0;
-    vec3 S = orig - v0;
-    vec3 S1 = cross(dir,edge2);
-    vec3 S2 = cross(S,edge1);
 
-    float a = dot(S1, edge1);
-    if (a > -MIN_EPSILON && a < MIN_EPSILON){
-        return false;
-    }
-    float coeff = 1.0 / a;
-    float t0 = coeff * dot(S2, edge2);
-    float b1 = coeff * dot(S1, S);  // 重心坐标u
-    float b2 = coeff * dot(S2, dir); // 重心坐标v
-    if (t0 >= MIN_EPSILON && b1 >= 0.0 && b2 >= 0.0 && (b1 + b2) >= 1.0){
-       t = t0;
-       normal = normalize(cross(edge1, edge2)); // 三角形法线
-       return true;
-    }
-    return false;
-}
 
 bool ray_sphere_intersect(vec3 orig, vec3 dir, Sphere s, out float t) {
     vec3 L = s.center_radius.xyz - orig;
@@ -206,7 +181,8 @@ struct SceneHit {
 void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
-    int trianglesCount = int(ubo.triangleCount.x); //add 三角形数量
+    int trianglesCount = int(ubo.triangleCount.x); // 三角形数量
+    int modelsCount = int(ubo.modelCount.x); // 模型数量
 
     nearest.hit = false;
     nearest.distance = 1e10;
@@ -243,21 +219,46 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
         }
     }
     vec3 invDir = 1.0 / dir;
-    if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
-        // 遍历所有三角形
-        for (int i = 0; i < trianglesCount; i++) {
-            Triangle tri = triangles[i];
-            float t;
-            vec3 hitPoint, hitNormal;
-            if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
-                if (t > MIN_EPSILON && t < nearest.distance) {
-                    hitPoint = orig + dir * t;
-                    nearest.hit = true;
-                    nearest.distance = t;
-                    nearest.point = hitPoint;
-                    nearest.normal = hitNormal;
-                    // 设置材质
-                    nearest.material = tri.material;
+
+    //if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
+    //    // 遍历所有三角形
+    //    for (int i = 0; i < trianglesCount; i++) {
+    //        Triangle tri = triangles[i];
+    //        float t;
+    //        vec3 hitPoint, hitNormal;
+    //        if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
+    //            if (t > MIN_EPSILON && t < nearest.distance) {
+    //                hitPoint = orig + dir * t;
+    //                nearest.hit = true;
+    //                nearest.distance = t;
+    //                nearest.point = hitPoint;
+    //                nearest.normal = hitNormal;
+    //                // 设置材质
+    //                nearest.material = tri.material;
+    //            }
+    //        }
+    //    }
+    //}
+    // 
+    for(int i = 0; i < modelsCount; i++){
+        if(ray_aabb_intersect(orig, dir, invDir, models[i].bboxMin.xyz, models[i].bboxMax.xyz)){
+            int startindex = int(models[i].params0.x); 
+            int count = int(models[i].params0.y);
+            int endindex = startindex + count;
+            for (int j = startindex; j < endindex; j++){
+                Triangle tri = triangles[j];
+                float t;
+                vec3 hitPoint, hitNormal;
+                if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
+                    if (t > MIN_EPSILON && t < nearest.distance) {
+                        hitPoint = orig + dir * t;
+                        nearest.hit = true;
+                        nearest.distance = t;
+                        nearest.point = hitPoint;
+                        nearest.normal = hitNormal;
+                        // 设置材质
+                        nearest.material = tri.material;
+                    }
                 }
             }
         }
@@ -267,7 +268,7 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
 bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
-
+    int modelsCount = int(ubo.modelCount.x); // 模型数量
     if(draw_sphere){
         Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
         for (int i = 0; i < 4; i++) {
@@ -278,19 +279,38 @@ bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
         }
     }
     vec3 invDir = 1.0 / dir;
-    if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
-        for (int i = 0; i < int(ubo.triangleCount.x); i++) {
-            Triangle tri = triangles[i];
-            float t;
-            vec3 normal;
+    //if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
+    //    for (int i = 0; i < int(ubo.triangleCount.x); i++) {
+    //        Triangle tri = triangles[i];
+    //        float t;
+    //        vec3 normal;
+    //
+    //        if (ray_triangle_intersect(orig, dir, tri, t, normal)) {
+    //            if (t > MIN_EPSILON && t < max_dist) {
+    //                return true; // 被三角形挡住
+    //            }
+    //        }
+    //    }
+    //}
 
-            if (ray_triangle_intersect(orig, dir, tri, t, normal)) {
-                if (t > MIN_EPSILON && t < max_dist) {
-                    return true; // 被三角形挡住
+     for(int i = 0; i < modelsCount; i++){
+        if(ray_aabb_intersect(orig, dir, invDir, models[i].bboxMin.xyz, models[i].bboxMax.xyz)){
+            int startindex = int(models[i].params0.x); 
+            int count = int(models[i].params0.y);
+            int endindex = startindex + count;
+            for (int j= startindex; j < endindex; j++) {
+                Triangle tri = triangles[j];
+                float t;
+                vec3 normal;
+                if (ray_triangle_intersect(orig, dir, tri, t, normal)) {
+                    if (t > MIN_EPSILON && t < max_dist) {
+                        return true; // 被三角形挡住
+                    }
                 }
-            }
-        }
-    }
+             }
+         }
+     
+     }
 
     return false;
 }

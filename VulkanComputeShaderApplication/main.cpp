@@ -1464,10 +1464,11 @@ private:
 				model.bboxMax = glm::max(model.bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
 			}
 			// 将 modelTriangles 追加到 triangles 后面
+			int startid = static_cast<int>(triangles.size());
 			triangles.insert(triangles.end(), modelTriangles.begin(), modelTriangles.end());
-			model.params0.x = static_cast<int>(triangles.size());   // 起始索引
+			model.params0.x = startid;   // 起始索引
 			model.params0.y = static_cast<int>(modelTriangles.size()); // 三角形数量
-
+			std::cout<< filename <<model.params0.x << "/" << model.params0.y << std::endl;
 			models.push_back(model);
 		}
 		// 计算包围盒
