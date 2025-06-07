@@ -115,7 +115,7 @@ vec3 custom_refract(vec3 I, vec3 N, float eta_out, float eta_in) {
     return normalize(refractDir);
 }
 
-bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, out float t, out vec3 normal) {
+bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, int normalinterpolation, out float t, out vec3 normal) {
     // TODO
     // implement the triangle intersect
 
@@ -148,13 +148,27 @@ bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, out float t, out 
     }
     // 计算交点距离 t
     t = f * dot(edge2, q);
-    if (t > MIN_EPSILON) {
-        // 光线确实击中了三角形
-        normal = normalize(cross(edge1, edge2)); // 三角形法线
-        return true;
+
+    //if (t > MIN_EPSILON) {
+    //    // 光线确实击中了三角形
+    //    normal = normalize(cross(edge1, edge2)); // 三角形法线
+    //    return true;
+    //}
+    //return false;
+    if (t <= MIN_EPSILON)
+        return false;
+
+    // 设置法线
+    if (normalinterpolation == 0) {
+        // 使用平面法线（Flat Shading）
+        normal = normalize(cross(edge1, edge2));
+    } else {
+        // 使用重心坐标顶点法线插值（Smooth Shading）
+        float w = 1.0 - u - v;
+        normal = normalize(w * tri.v0_norm.xyz + u * tri.v1_norm.xyz + v * tri.v2_norm.xyz);
     }
 
-    return false;
+    return true;
 }
 
 
@@ -248,11 +262,12 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
             int startindex = int(models[i].params0.x); 
             int count = int(models[i].params0.y);
             int endindex = startindex + count;
+            int normalinterpolation = int(models[i].params0.z);
             for (int j = startindex; j < endindex; j++){
                 Triangle tri = triangles[j];
                 float t;
                 vec3 hitPoint, hitNormal;
-                if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
+                if (ray_triangle_intersect(orig, dir, tri, normalinterpolation,t, hitNormal)) {
                     if (t > MIN_EPSILON && t < nearest.distance) {
                         hitPoint = orig + dir * t;
                         nearest.hit = true;
@@ -305,7 +320,7 @@ bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
                 Triangle tri = triangles[j];
                 float t;
                 vec3 normal;
-                if (ray_triangle_intersect(orig, dir, tri, t, normal)) {
+                if (ray_triangle_intersect(orig, dir, tri, 0,t, normal)) {
                     if (t > MIN_EPSILON && t < max_dist) {
                         return true; // 被三角形挡住
                     }
