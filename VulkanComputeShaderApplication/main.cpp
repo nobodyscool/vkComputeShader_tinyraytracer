@@ -26,7 +26,7 @@
 #include <set>
 #include <random>
 #include <cmath>
-
+#include <unordered_map>
 #include "config.hpp"
 const bool preferHighPerformanceGPU = true;
 
@@ -171,17 +171,16 @@ struct Ray
 std::vector<Ray> rays(WIDTH* HEIGHT + 1);
 
 
-void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,const glm::vec3& rotation,const glm::vec3& translation)
-{
-/**
- * @brief 模型变换
- *
- *
- * @param triangles 三角形在总数组
- * @param scale 缩放参数
- * @param rotation 旋转参数
- * @param translation 平移参数
- */
+void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,const glm::vec3& rotation,const glm::vec3& translation){
+	/**
+	 * @brief 物体模型变换
+	 *
+	 *
+	 * @param triangles 三角形在总数组
+	 * @param scale 缩放参数
+	 * @param rotation 旋转参数
+	 * @param translation 平移参数
+	 */
 	// 创建模型变换矩阵
 	glm::mat4 model = glm::mat4(1.0f);
 
@@ -197,6 +196,42 @@ void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,
 		triangles[i].v0 = model * triangles[i].v0;
 		triangles[i].v1 = model * triangles[i].v1;
 		triangles[i].v2 = model * triangles[i].v2;
+	}
+}
+
+void computeVertexNormals(std::vector<Triangle>& triangles) {
+	/**
+	* @brief 计算三角形顶点法向，用于做法向平滑着色
+	*
+	*
+	* @param triangles 三角形数组
+	*/
+	struct VertexHash {
+		size_t operator()(const glm::vec4& v) const {
+			return std::hash<float>()(v.x) ^ std::hash<float>()(v.y) ^ std::hash<float>()(v.z);
+		}
+	};
+	// 这里使用异或hash有可能会出现少量碰撞导致的法向错误
+
+	std::unordered_map<glm::vec4, glm::vec3, VertexHash> vertexNormals;
+
+	for (auto& tri : triangles) {
+		// 计算当前三角形的面法线
+		glm::vec3 edge1 = glm::vec3(tri.v1 - tri.v0);
+		glm::vec3 edge2 = glm::vec3(tri.v2 - tri.v0);
+		glm::vec3 faceNormal = glm::normalize(glm::cross(edge1, edge2));
+
+		// 累加到三个顶点的法线中
+		vertexNormals[tri.v0] += faceNormal;
+		vertexNormals[tri.v1] += faceNormal;
+		vertexNormals[tri.v2] += faceNormal;
+	}
+
+	// 归一化并写入每个三角形的顶点法线
+	for (auto& tri : triangles) {
+		tri.v0_norm = glm::vec4(glm::normalize(vertexNormals[tri.v0]), 0.0f);
+		tri.v1_norm = glm::vec4(glm::normalize(vertexNormals[tri.v1]), 0.0f);
+		tri.v2_norm = glm::vec4(glm::normalize(vertexNormals[tri.v2]), 0.0f);
 	}
 }
 
@@ -1463,22 +1498,23 @@ private:
 				model.bboxMin = glm::min(model.bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
 				model.bboxMax = glm::max(model.bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
 			}
+			// 若模型开启 法向平滑 则计算其每个顶点的法向，用于在shader中做插值
+			if (int(model.params0.z) == 1) {
+				computeVertexNormals(modelTriangles);
+			}
+
 			// 将 modelTriangles 追加到 triangles 后面
 			int startid = static_cast<int>(triangles.size());
 			triangles.insert(triangles.end(), modelTriangles.begin(), modelTriangles.end());
 			model.params0.x = startid;   // 起始索引
 			model.params0.y = static_cast<int>(modelTriangles.size()); // 三角形数量
-			std::cout<< filename <<model.params0.x << "/" << model.params0.y << std::endl;
+			std::cout<< filename << "/" << model.params0.x << "/" << model.params0.y << "/" << model.params0.z << std::endl;
 			models.push_back(model);
 		}
-		// 计算包围盒
-		for (const Triangle& tri : triangles)
-		{
-			bboxMin = glm::min(bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
-			bboxMax = glm::max(bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
-		}
+
+		// 为ubo中的参数赋值
 		TRIANGLE_COUNT = triangles.size();
-		triangleCount.x = TRIANGLE_COUNT; // add 为三角形总数赋值
+		triangleCount.x = TRIANGLE_COUNT;
 		MODEL_COUNT = models.size();
 		modelCount.x = MODEL_COUNT;
 
@@ -2222,6 +2258,9 @@ private:
 				tri.v1 = glm::vec4(v[1], 1.0f);
 				tri.v2 = glm::vec4(v[2], 1.0f);
 				tri.material = mat;
+				tri.v0_norm = glm::vec4(0.0f);
+				tri.v1_norm = glm::vec4(0.0f);
+				tri.v2_norm = glm::vec4(0.0f);
 				triangles.push_back(tri);
 
 				index_offset += fv;

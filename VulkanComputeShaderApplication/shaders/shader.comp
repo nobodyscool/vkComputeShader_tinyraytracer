@@ -21,6 +21,9 @@ struct Triangle {
     vec4 v1;  // xyz: vertex 1
     vec4 v2;  // xyz: vertex 2
     Material material;
+    vec4 v0_norm;
+    vec4 v1_norm;
+    vec4 v2_norm;
 };
 
 struct Model

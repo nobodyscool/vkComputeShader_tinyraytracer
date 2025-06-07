@@ -21,6 +21,9 @@ struct Triangle
 	glm::vec4 v1;
 	glm::vec4 v2;
 	Material material;
+	glm::vec4 v0_norm;
+	glm::vec4 v1_norm;
+	glm::vec4 v2_norm;
 };
 
 // 着色器中使用的模型数据
@@ -35,8 +38,8 @@ struct Model
 	Material material;
 
 	//构造函数
-	Model(const Material& mat)
-		: params0(0,0,0,0),
+	Model(const Material& mat,const int normalinterpolatio)
+		: params0(0,0,normalinterpolatio,0),
 		bboxMin(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX),
 		bboxMax(-FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX),
 		material(mat) {}
