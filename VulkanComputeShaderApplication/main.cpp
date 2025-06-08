@@ -199,69 +199,6 @@ void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,
 		triangles[i].v2 = model * triangles[i].v2;
 	}
 }
-glm::mat4 scaleMatrix(float sx, float sy, float sz) {
-	return glm::mat4(
-		sx, 0.0f, 0.0f, 0.0f,
-		0.0f, sy, 0.0f, 0.0f,
-		0.0f, 0.0f, sz, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	);
-}
-glm::mat4 rotateX(float radians) {
-	float c = cos(radians);
-	float s = sin(radians);
-	return glm::mat4(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, c, -s, 0.0f,
-		0.0f, s, c, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	);
-}
-glm::mat4 rotateY(float radians) {
-	float c = cos(radians);
-	float s = sin(radians);
-	return glm::mat4(
-		c, 0.0f, s, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		-s, 0.0f, c, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	);
-}
-glm::mat4 rotateZ(float radians) {
-	float c = cos(radians);
-	float s = sin(radians);
-	return glm::mat4(
-		c, -s, 0.0f, 0.0f,
-		s, c, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	);
-}
-glm::mat4 translateMatrix(float tx, float ty, float tz) {
-	return glm::mat4(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		tx, ty, tz, 1.0f
-	);
-}
-void transformTriangles0(std::vector<Triangle>& triangles, const glm::vec3& scale, const glm::vec3& rotation, const glm::vec3& translation) {
-	glm::mat4 model(1.0f);
-
-	model = model * translateMatrix(translation.x, translation.y, translation.z);
-	model = model * rotateX(rotation.x);
-	model = model * rotateY(rotation.y);
-	model = model * rotateZ(rotation.z);
-	model = model * scaleMatrix(scale.x, scale.y, scale.z);
-
-	// 应用到每个三角形顶点
-	for (auto& tri : triangles) {
-		tri.v0 = model * tri.v0;
-		tri.v1 = model * tri.v1;
-		tri.v2 = model * tri.v2;
-	}
-
-}
 
 void computeVertexNormals(std::vector<Triangle>& triangles) {
 	/**
