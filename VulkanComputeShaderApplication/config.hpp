@@ -30,7 +30,7 @@ constexpr Material bunnyMaterial = { {0.9f, 0.1f, 0.0f, 0.0f}, {0.0522876f, 0.15
 constexpr glm::vec3 bunnyScale = { 1.0f,  1.0f,  1.0f };
 constexpr glm::vec3 bunnyRotation = { 0.0f, 0.0f, 0.0f };
 constexpr glm::vec3 bunnyTranslation = { 2.5f, -1.5f, -5.5f };
-constexpr int bunnyNormalinterpolation = 1;
+constexpr int bunnyNormalinterpolation = 0;
 Model Bunny(bunnyMaterial, bunnyNormalinterpolation);
 ModelInfo bunnyInfo(Bunny, "assets/bunny-mesh.obj", bunnyScale, bunnyRotation, bunnyTranslation);
 
@@ -48,7 +48,7 @@ constexpr Material venusMaterial = { {0.0, 10.0, 0.8, 0.0}, {1.0, 1.0, 1.0, 1425
 constexpr glm::vec3 venusScale = { 5.5f, 5.5f, 5.5f };
 constexpr glm::vec3 venusRotation = { 0.0f, 0.0f, 0.0f };
 constexpr glm::vec3 venusTranslation = { -1.0f, 2.0f, -19.0f };
-constexpr int venusNormalinterpolation = 0;
+constexpr int venusNormalinterpolation = 1;
 Model Venus(venusMaterial, venusNormalinterpolation);
 ModelInfo venusInfo(Venus, "assets/venus-mesh.obj", venusScale, venusRotation, venusTranslation);
 
@@ -56,11 +56,11 @@ ModelInfo venusInfo(Venus, "assets/venus-mesh.obj", venusScale, venusRotation, v
 constexpr Material fudanlogoMaterial = { {0.7f, 0.3f, 0.0f, 0.0f}, {0.235294f, 0.130719f, 0.078431f, 10.0f}, {1.0f, 0.0f, 0.0f, 0.0f} };
 constexpr glm::vec3 fudanlogoScale = { 0.4f, 0.4f, 0.4f };
 constexpr glm::vec3 fudanlogoRotation = { 90.0f, 0.0f, 0.0f }; 
-constexpr glm::vec3 fudanlogoTranslation = { -0.5f, 2.0f, -4.0f };
+constexpr glm::vec3 fudanlogoTranslation = { 0.85f, 1.95f, -4.15f };
 constexpr int fudanLogoNormalinterpolation = 0;
 Model FudanLogo(fudanlogoMaterial, fudanLogoNormalinterpolation);
 ModelInfo fudanlogoInfo(FudanLogo, "assets/fudanlogo-mesh.obj", fudanlogoScale, fudanlogoRotation, fudanlogoTranslation);
 
 // 导入模型的列表
 //std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
-std::vector<ModelInfo> modelList = { asschercutInfo ,bunnyInfo,fudanlogoInfo };
+std::vector<ModelInfo> modelList = { asschercutInfo ,bunnyInfo,venusInfo,fudanlogoInfo };

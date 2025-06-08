@@ -184,10 +184,11 @@ void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,
 	// 创建模型变换矩阵
 	glm::mat4 model = glm::mat4(1.0f);
 
+	
 	model = glm::translate(model, translation);
-	model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1, 0, 0));
-	model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
 	model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0, 0, 1));
+	model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+	model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1, 0, 0));
 	model = glm::scale(model, scale);
 
 	// 应用到每个三角形
@@ -197,6 +198,69 @@ void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,
 		triangles[i].v1 = model * triangles[i].v1;
 		triangles[i].v2 = model * triangles[i].v2;
 	}
+}
+glm::mat4 scaleMatrix(float sx, float sy, float sz) {
+	return glm::mat4(
+		sx, 0.0f, 0.0f, 0.0f,
+		0.0f, sy, 0.0f, 0.0f,
+		0.0f, 0.0f, sz, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
+}
+glm::mat4 rotateX(float radians) {
+	float c = cos(radians);
+	float s = sin(radians);
+	return glm::mat4(
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, c, -s, 0.0f,
+		0.0f, s, c, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
+}
+glm::mat4 rotateY(float radians) {
+	float c = cos(radians);
+	float s = sin(radians);
+	return glm::mat4(
+		c, 0.0f, s, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		-s, 0.0f, c, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
+}
+glm::mat4 rotateZ(float radians) {
+	float c = cos(radians);
+	float s = sin(radians);
+	return glm::mat4(
+		c, -s, 0.0f, 0.0f,
+		s, c, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
+}
+glm::mat4 translateMatrix(float tx, float ty, float tz) {
+	return glm::mat4(
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		tx, ty, tz, 1.0f
+	);
+}
+void transformTriangles0(std::vector<Triangle>& triangles, const glm::vec3& scale, const glm::vec3& rotation, const glm::vec3& translation) {
+	glm::mat4 model(1.0f);
+
+	model = model * translateMatrix(translation.x, translation.y, translation.z);
+	model = model * rotateX(rotation.x);
+	model = model * rotateY(rotation.y);
+	model = model * rotateZ(rotation.z);
+	model = model * scaleMatrix(scale.x, scale.y, scale.z);
+
+	// 应用到每个三角形顶点
+	for (auto& tri : triangles) {
+		tri.v0 = model * tri.v0;
+		tri.v1 = model * tri.v1;
+		tri.v2 = model * tri.v2;
+	}
+
 }
 
 void computeVertexNormals(std::vector<Triangle>& triangles) {
@@ -475,6 +539,12 @@ private:
 		{
 			vkDestroyBuffer(device, shaderStorageRayBuffers[i], nullptr);
 			vkFreeMemory(device, shaderStorageRayBuffersMemory[i], nullptr);
+
+			vkDestroyBuffer(device, shaderStorageTriangleBuffers[i], nullptr);
+			vkFreeMemory(device, shaderStorageTriangleBuffersMemory[i], nullptr);
+
+			vkDestroyBuffer(device, shaderStorageModelBuffers[i], nullptr);
+			vkFreeMemory(device, shaderStorageModelBuffersMemory[i], nullptr);
 		}
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
