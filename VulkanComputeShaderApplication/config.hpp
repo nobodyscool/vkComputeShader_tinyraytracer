@@ -64,4 +64,4 @@ ModelInfo fudanlogoInfo(FudanLogo, "assets/fudanlogo-mesh.obj", fudanlogoScale, 
 
 // 导入模型的列表
 //std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
-std::vector<ModelInfo> modelList = { asschercutInfo ,bunnyInfo,dragonInfo,venusInfo,fudanlogoInfo };
+std::vector<ModelInfo> modelList = { duckInfo};

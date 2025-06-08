@@ -48,8 +48,6 @@ layout (binding = 0) uniform ParameterUBO {
     vec4 camPos;
     vec4 bboxMin;
     vec4 bboxMax;
-    vec4 triangleCount;
-    vec4 modelCount;
 } ubo;
 
 layout(std140, binding = 1) readonly buffer RaySSBOIn {
@@ -82,23 +80,18 @@ const int WIDTH = 1024;
 const int HEIGHT = 768;
 const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
-const bool draw_sphere = false;
+const bool draw_sphere = true;
 
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
-    // TODO-finished
     // implement the bbox intersect for optimization
     vec3 t0 = (bboxMin - orig) * invDir;
     vec3 t1 = (bboxMax - orig) * invDir;
-
     vec3 tmin = min(t0, t1);
     vec3 tmax = max(t0, t1);
-
     float tNear = max(max(tmin.x, tmin.y), tmin.z);
     float tFar  = min(min(tmax.x, tmax.y), tmax.z);
 
     return tNear <= tFar && tFar > MIN_EPSILON;
-
-    return true;
 }
 
 vec3 custom_refract(vec3 I, vec3 N, float eta_out, float eta_in) {
@@ -171,7 +164,6 @@ bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, int normalinterpo
     return true;
 }
 
-
 bool ray_sphere_intersect(vec3 orig, vec3 dir, Sphere s, out float t) {
     vec3 L = s.center_radius.xyz - orig;
     float tca = dot(L, dir);
@@ -198,8 +190,8 @@ struct SceneHit {
 void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
-    int trianglesCount = int(ubo.triangleCount.x); // 三角形数量
-    int modelsCount = int(ubo.modelCount.x); // 模型数量
+    //int trianglesCount = int(ubo.triangleCount.x); // 三角形数量
+    //int modelsCount = int(ubo.modelCount.x); // 模型数量
 
     nearest.hit = false;
     nearest.distance = 1e10;
@@ -237,27 +229,7 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
     }
     vec3 invDir = 1.0 / dir;
 
-    //if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
-    //    // 遍历所有三角形
-    //    for (int i = 0; i < trianglesCount; i++) {
-    //        Triangle tri = triangles[i];
-    //        float t;
-    //        vec3 hitPoint, hitNormal;
-    //        if (ray_triangle_intersect(orig, dir, tri, t, hitNormal)) {
-    //            if (t > MIN_EPSILON && t < nearest.distance) {
-    //                hitPoint = orig + dir * t;
-    //                nearest.hit = true;
-    //                nearest.distance = t;
-    //                nearest.point = hitPoint;
-    //                nearest.normal = hitNormal;
-    //                // 设置材质
-    //                nearest.material = tri.material;
-    //            }
-    //        }
-    //    }
-    //}
-    // 
-    for(int i = 0; i < modelsCount; i++){
+    for(int i = 0; i < models.length(); i++){
         if(ray_aabb_intersect(orig, dir, invDir, models[i].bboxMin.xyz, models[i].bboxMax.xyz)){
             int startindex = int(models[i].params0.x); 
             int count = int(models[i].params0.y);
@@ -286,7 +258,7 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
 bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
-    int modelsCount = int(ubo.modelCount.x); // 模型数量
+
     if(draw_sphere){
         Sphere spheres[4] = {ubo.sphere0, ubo.sphere1, ubo.sphere2, ubo.sphere3};
         for (int i = 0; i < 4; i++) {
@@ -297,21 +269,8 @@ bool shadow_intersect(vec3 orig, vec3 dir, float max_dist) {
         }
     }
     vec3 invDir = 1.0 / dir;
-    //if (ray_aabb_intersect(orig, dir, invDir, ubo.bboxMin.xyz, ubo.bboxMax.xyz)) {
-    //    for (int i = 0; i < int(ubo.triangleCount.x); i++) {
-    //        Triangle tri = triangles[i];
-    //        float t;
-    //        vec3 normal;
-    //
-    //        if (ray_triangle_intersect(orig, dir, tri, t, normal)) {
-    //            if (t > MIN_EPSILON && t < max_dist) {
-    //                return true; // 被三角形挡住
-    //            }
-    //        }
-    //    }
-    //}
 
-     for(int i = 0; i < modelsCount; i++){
+     for(int i = 0; i < models.length(); i++){
         if(ray_aabb_intersect(orig, dir, invDir, models[i].bboxMin.xyz, models[i].bboxMax.xyz)){
             int startindex = int(models[i].params0.x); 
             int count = int(models[i].params0.y);
@@ -367,6 +326,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
         if (!hit.hit) {
             vec2 uv = direction_to_uv(segment.direction);
             vec3 bg_color = texture(backgroundImage, uv).rgb;
+            //vec3 bg_color = BACKGROUND_COLOR;
             color += segment.throughput * bg_color;
             continue;
         }

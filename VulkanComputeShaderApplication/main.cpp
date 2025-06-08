@@ -134,8 +134,6 @@ struct UniformBufferObject
 	glm::vec4 camPos;
 	glm::vec4 bboxMin;
 	glm::vec4 bboxMax;
-	glm::vec4 triangleCount;
-	glm::vec4 modelCount;
 };
 
 struct Ray
@@ -183,8 +181,6 @@ void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,
 	 */
 	// 创建模型变换矩阵
 	glm::mat4 model = glm::mat4(1.0f);
-
-	
 	model = glm::translate(model, translation);
 	model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0, 0, 1));
 	model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
@@ -192,7 +188,6 @@ void transformTriangles(std::vector<Triangle>& triangles,const glm::vec3& scale,
 	model = glm::scale(model, scale);
 
 	// 应用到每个三角形
-
 	for (int i = 0; i < (int)triangles.size(); ++i) {
 		triangles[i].v0 = model * triangles[i].v0;
 		triangles[i].v1 = model * triangles[i].v1;
@@ -1079,7 +1074,7 @@ private:
 		backgroundSamplerInfo.minFilter = VK_FILTER_LINEAR;  // 缩小时使用线性滤波
 		backgroundSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // 使用线性 mipmapping
 		backgroundSamplerInfo.addressModeU = backgroundSamplerInfo.addressModeV = backgroundSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // 边界处理
-		backgroundSamplerInfo.anisotropyEnable = VK_FALSE;   // 可选：开启各向异性过滤（需要设备支持）
+		backgroundSamplerInfo.anisotropyEnable = VK_FALSE;   // 各向异性过滤（需要设备支持）
 		backgroundSamplerInfo.maxAnisotropy = 1.0f;          // 如果开启，可设为更高值如 16.0f
 		backgroundSamplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // 超出范围的像素返回黑色
 		backgroundSamplerInfo.unnormalizedCoordinates = VK_FALSE; // 使用归一化坐标 [0,1]
@@ -1504,14 +1499,13 @@ private:
 			if (int(model.params0.z) == 1) {
 				computeVertexNormals(modelTriangles);
 			}
-			// 常量级别BVH展开
+			// 常量级别AABB展开
 			std::vector<std::vector<Triangle>> batches;
 			const size_t batchSize = 64;
 			for (size_t i = 0; i < modelTriangles.size(); i += batchSize) {
 				std::vector<Triangle>::iterator next = modelTriangles.begin() + std::min(i + batchSize, modelTriangles.size());
 				batches.emplace_back(modelTriangles.begin() + i, next);
 			}
-			// 遍历每个 batch 并处理
 			for (size_t batchIdx = 0; batchIdx < batches.size(); ++batchIdx) {
 				Model tempmodel(model);
 				// 计算当前 batch 的 包围盒
@@ -1540,7 +1534,6 @@ private:
 			//models.push_back(model);
 		}
 
-		// 为ubo中的参数赋值
 		TRIANGLE_COUNT = triangles.size();
 		triangleCount.x = TRIANGLE_COUNT;
 		MODEL_COUNT = models.size();
@@ -2137,8 +2130,6 @@ private:
 		ubo.camPos = glm::vec4(cameraPos, 1.0f);
 		ubo.bboxMin = bboxMin;
 		ubo.bboxMax = bboxMax;
-		ubo.triangleCount = triangleCount; // add 三角形计数
-		ubo.modelCount = modelCount;
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 
