@@ -1500,23 +1500,44 @@ private:
 			std::vector<Triangle> modelTriangles = loadObjAsTriangles(filename, model.material);
 			// 做模型变换
 			transformTriangles(modelTriangles, scale, rotation, translation);
-			// 计算包围盒
-			for (const Triangle& tri : modelTriangles){
-				model.bboxMin = glm::min(model.bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
-				model.bboxMax = glm::max(model.bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
-			}
 			// 若模型开启 法向平滑 则计算其每个顶点的法向，用于在shader中做插值
 			if (int(model.params0.z) == 1) {
 				computeVertexNormals(modelTriangles);
 			}
+			// 常量级别BVH展开
+			std::vector<std::vector<Triangle>> batches;
+			const size_t batchSize = 64;
+			for (size_t i = 0; i < modelTriangles.size(); i += batchSize) {
+				std::vector<Triangle>::iterator next = modelTriangles.begin() + std::min(i + batchSize, modelTriangles.size());
+				batches.emplace_back(modelTriangles.begin() + i, next);
+			}
+			// 遍历每个 batch 并处理
+			for (size_t batchIdx = 0; batchIdx < batches.size(); ++batchIdx) {
+				Model tempmodel(model);
+				// 计算当前 batch 的 包围盒
+				for (const Triangle& tri : batches[batchIdx]) {
+					tempmodel.bboxMin = glm::min(tempmodel.bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
+					tempmodel.bboxMax = glm::max(tempmodel.bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
+				}
+				int startid = static_cast<int>(triangles.size());
+				triangles.insert(triangles.end(), batches[batchIdx].begin(), batches[batchIdx].end());
+				tempmodel.params0.x = startid;   // 起始索引
+				tempmodel.params0.y = static_cast<int>(batches[batchIdx].size()); // 三角形数量
+				models.push_back(tempmodel);
+			}
 
-			// 将 modelTriangles 追加到 triangles 后面
-			int startid = static_cast<int>(triangles.size());
-			triangles.insert(triangles.end(), modelTriangles.begin(), modelTriangles.end());
-			model.params0.x = startid;   // 起始索引
-			model.params0.y = static_cast<int>(modelTriangles.size()); // 三角形数量
-			std::cout<< filename << "/" << model.params0.x << "/" << model.params0.y << "/" << model.params0.z << std::endl;
-			models.push_back(model);
+			//// 计算包围盒
+			//for (const Triangle& tri : modelTriangles){
+			//	model.bboxMin = glm::min(model.bboxMin, glm::min(tri.v0, glm::min(tri.v1, tri.v2)));
+			//	model.bboxMax = glm::max(model.bboxMax, glm::max(tri.v0, glm::max(tri.v1, tri.v2)));
+			//}
+
+			//// 将 modelTriangles 追加到 triangles 后面
+			//int startid = static_cast<int>(triangles.size());
+			//triangles.insert(triangles.end(), modelTriangles.begin(), modelTriangles.end());
+			//model.params0.x = startid;   // 起始索引
+			//model.params0.y = static_cast<int>(modelTriangles.size()); // 三角形数量
+			//models.push_back(model);
 		}
 
 		// 为ubo中的参数赋值

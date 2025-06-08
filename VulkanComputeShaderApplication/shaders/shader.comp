@@ -82,7 +82,7 @@ const int WIDTH = 1024;
 const int HEIGHT = 768;
 const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
-const bool draw_sphere = alse;
+const bool draw_sphere = false;
 
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
     // TODO-finished
