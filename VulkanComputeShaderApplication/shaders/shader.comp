@@ -72,7 +72,7 @@ layout(std140, binding = 6) readonly buffer ModelSSBO {
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-const int MAX_DEPTH = 4;
+const int MAX_DEPTH = 20;
 const int MAX_STACK_SIZE = MAX_DEPTH * 2 ;
 const vec3 BACKGROUND_COLOR = vec3(0.2, 0.7, 0.8);
 const float MIN_EPSILON = 0.00001;
@@ -80,7 +80,7 @@ const int WIDTH = 1024;
 const int HEIGHT = 768;
 const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
-const bool draw_sphere = true;
+const bool draw_sphere = false;
 
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
     // implement the bbox intersect for optimization
@@ -101,7 +101,7 @@ vec3 custom_refract(vec3 I, vec3 N, float eta_out, float eta_in) {
     float eta = isEntering ? eta_in / eta_out : eta_out / eta_in;
     float sint2 = eta * eta * (1.0 - cosi * cosi);
     if (sint2 > 1.0) {
-        return vec3(1.0, 0.0, 0.0);
+        return vec3(0.0, 0.0, 0.0); // 非物理的简化处理
     }
     float k = sqrt(1.0 - sint2);
     vec3 refractDir = eta * I + (eta * cosi - k) * faceNormal;
@@ -121,33 +121,26 @@ bool ray_triangle_intersect(vec3 orig, vec3 dir, Triangle tri, int normalinterpo
     vec3 h = cross(dir, edge2);
     float a = dot(edge1, h);
     // 如果 a 接近 0，光线和平面平行
-    if (a > -MIN_EPSILON && a < MIN_EPSILON) {
+    if (a > -MIN_EPSILON && a < MIN_EPSILON)
         return false;
-    }
+
     float f = 1.0 / a;
     // 计算从原点到顶点的向量
     vec3 s = orig - v0;
     // 计算 u 参数
     float u = f * dot(s, h);
-    if (u < 0.0 || u > 1.0) {
+    if (u < 0.0 || u > 1.0)
         return false;
-    }
+  
     // 计算第二个叉积（Q）
     vec3 q = cross(s, edge1);
     // 计算 v 参数
     float v = f * dot(dir, q);
-    if (v < 0.0 || u + v > 1.0) {
+    if (v < 0.0 || u + v > 1.0)
         return false;
-    }
     // 计算交点距离 t
     t = f * dot(edge2, q);
 
-    //if (t > MIN_EPSILON) {
-    //    // 光线确实击中了三角形
-    //    normal = normalize(cross(edge1, edge2)); // 三角形法线
-    //    return true;
-    //}
-    //return false;
     if (t <= MIN_EPSILON)
         return false;
 
@@ -190,8 +183,6 @@ struct SceneHit {
 void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
     // TODO 
     // You need to modify this function to add a duck model(a lot of triangles)
-    //int trianglesCount = int(ubo.triangleCount.x); // 三角形数量
-    //int modelsCount = int(ubo.modelCount.x); // 模型数量
 
     nearest.hit = false;
     nearest.distance = 1e10;
@@ -307,6 +298,11 @@ vec2 direction_to_uv(vec3 dir) {
     return vec2(u, v);
 }
 
+float getDynamicEpsilon(float distance) {
+    // 基础偏移 + 距离比例因子 × 距离
+    return MIN_EPSILON + 0.0000001 * distance;
+}
+
 vec3 cast_ray(vec3 orig, vec3 dir) {
     // TODO-finished
     // You need to modify this function to add background
@@ -338,6 +334,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
         vec3 specular = vec3(0.0);
         vec3 lights[3] = {ubo.light0.xyz, ubo.light1.xyz, ubo.light2.xyz};
         float lightsintensity[3] = {ubo.light0.w,ubo.light1.w,ubo.light2.w};
+        float ep = getDynamicEpsilon(distance(p,ubo.camPos.xyz));
         for (int i = 0; i < 3; i++) {
             vec3 light_dir = normalize(lights[i] - p);
             float light_dist = length(lights[i] - p);
@@ -354,15 +351,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
         }
 
         color += segment.throughput * (diffuse * hit.material.albedo.x + specular * hit.material.albedo.y);
-
-        if (hit.material.albedo.z > 0.0 && stackSize < MAX_STACK_SIZE) {
-            vec3 next_dir = normalize(reflect(segment.direction, n));
-            vec3 offset = dot(next_dir, n) < 0.0 ? -n * MIN_EPSILON : n * MIN_EPSILON;
-            vec3 next_origin = p + offset;
-            vec3 next_throughput = segment.throughput * hit.material.albedo.z;
-            stack[stackSize++] = PathSegment(next_origin, next_dir, next_throughput, segment.depth + 1);
-        }
-
+        bool skip_reflect = false;
         if (hit.material.albedo.w > 0.0 && stackSize < MAX_STACK_SIZE) {
             vec3 refract_dir = custom_refract(segment.direction, n, hit.material.refractive.x, 1.0);
             if (length(refract_dir) > 0.0001) {
@@ -372,6 +361,23 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
                 vec3 next_throughput = segment.throughput * hit.material.albedo.w;
                 stack[stackSize++] = PathSegment(next_origin, refract_dir, next_throughput, segment.depth + 1);
             }
+            else{
+                //处理全反射
+                vec3 reflect_dir = normalize(reflect(segment.direction, n));
+                vec3 offset = dot(reflect_dir, n) < 0.0 ? -n * MIN_EPSILON : n * MIN_EPSILON;
+                vec3 next_origin = p + offset;
+                vec3 next_throughput = segment.throughput * 1;
+                stack[stackSize++] = PathSegment(next_origin, reflect_dir, next_throughput, segment.depth + 1);
+                skip_reflect = true;
+            }
+        }
+
+        if (hit.material.albedo.z > 0.0 && stackSize < MAX_STACK_SIZE && skip_reflect == false) {
+            vec3 next_dir = normalize(reflect(segment.direction, n));
+            vec3 offset = dot(next_dir, n) < 0.0 ? -n * MIN_EPSILON : n * MIN_EPSILON;
+            vec3 next_origin = p + offset;
+            vec3 next_throughput = segment.throughput * hit.material.albedo.z;
+            stack[stackSize++] = PathSegment(next_origin, next_dir, next_throughput, segment.depth + 1);
         }
     }
 

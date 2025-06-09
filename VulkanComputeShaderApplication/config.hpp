@@ -11,7 +11,7 @@ constexpr Material duckMaterial = { {0.0,0.5, 0.1, 0.8}, {0.6, 0.7, 0.8, 125.0},
 constexpr glm::vec3 duckScale = { 1.0f, 1.0f, 1.0f };
 constexpr glm::vec3 duckRotation = { 0.0f, 0.0f, 0.0f };
 constexpr glm::vec3 duckTranslation = { 0.0f, 0.0f, 0.0f };
-constexpr int duckNormalinterpolation = 0;
+constexpr int duckNormalinterpolation = 1;
 Model Duck(duckMaterial, duckNormalinterpolation);
 ModelInfo duckInfo(Duck, "assets/duck.obj", duckScale, duckRotation, duckTranslation);
 
@@ -63,5 +63,5 @@ Model FudanLogo(fudanlogoMaterial, fudanLogoNormalinterpolation);
 ModelInfo fudanlogoInfo(FudanLogo, "assets/fudanlogo-mesh.obj", fudanlogoScale, fudanlogoRotation, fudanlogoTranslation);
 
 // 导入模型的列表
-//std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
-std::vector<ModelInfo> modelList = { duckInfo};
+std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
+//std::vector<ModelInfo> modelList = { asschercutInfo,bunnyInfo };
