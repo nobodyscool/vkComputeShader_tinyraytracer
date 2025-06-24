@@ -44,6 +44,26 @@ uint32_t TRIANGLE_COUNT = 0;
 uint32_t MODEL_COUNT = 0;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
+std::vector<Triangle> cullBackFaces(const std::vector<Triangle>& triangles) {
+	std::vector<Triangle> result;
+	for (const auto& tri : triangles) {
+		// 将顶点从 vec4 转换为 vec3（忽略 w 分量）
+		glm::vec3 v0(tri.v0.x, tri.v0.y, tri.v0.z);
+		glm::vec3 v1(tri.v1.x, tri.v1.y, tri.v1.z);
+		glm::vec3 v2(tri.v2.x, tri.v2.y, tri.v2.z);
+		// 计算两个边向量
+		glm::vec3 edge1 = v1 - v0;
+		glm::vec3 edge2 = v2 - v0;
+		// 计算法线方向（叉乘）
+		glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+		// 判断法线是否朝向摄像机（即 z 分量 >
+		if (normal.z > 0) {
+			result.push_back(tri);
+		}
+	}
+	return result;
+}
+
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
@@ -1447,6 +1467,30 @@ private:
 		}
 	}
 
+	std::vector<Triangle> cullBackFaces(const std::vector<Triangle>& triangles) {
+    std::vector<Triangle> result;
+
+    for (const auto& tri : triangles) {
+        // 将顶点从 vec4 转换为 vec3（忽略 w 分量）
+        glm::vec3 v0(tri.v0.x, tri.v0.y, tri.v0.z);
+        glm::vec3 v1(tri.v1.x, tri.v1.y, tri.v1.z);
+        glm::vec3 v2(tri.v2.x, tri.v2.y, tri.v2.z);
+
+        // 计算两个边向量
+        glm::vec3 edge1 = v1 - v0;
+        glm::vec3 edge2 = v2 - v0;
+
+        // 计算法线方向（叉乘）
+        glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+        // 判断法线是否朝向摄像机（即 z 分量 > 0）
+        if (normal.z > 0.0f) {
+            result.push_back(tri);
+        }
+    }
+
+    return result;
+}
 	void createShaderStorageBuffers()
 	{
 		// Ray buffer
@@ -1499,6 +1543,7 @@ private:
 			if (int(model.params0.z) == 1) {
 				computeVertexNormals(modelTriangles);
 			}
+
 			// 常量级别AABB展开
 			std::vector<std::vector<Triangle>> batches;
 			const size_t batchSize = 64;

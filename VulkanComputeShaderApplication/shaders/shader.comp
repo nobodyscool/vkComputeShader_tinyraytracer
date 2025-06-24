@@ -72,7 +72,7 @@ layout(std140, binding = 6) readonly buffer ModelSSBO {
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-const int MAX_DEPTH = 20;
+const int MAX_DEPTH = 4;
 const int MAX_STACK_SIZE = MAX_DEPTH * 2 ;
 const vec3 BACKGROUND_COLOR = vec3(0.2, 0.7, 0.8);
 const float MIN_EPSILON = 0.00001;
@@ -101,7 +101,7 @@ vec3 custom_refract(vec3 I, vec3 N, float eta_out, float eta_in) {
     float eta = isEntering ? eta_in / eta_out : eta_out / eta_in;
     float sint2 = eta * eta * (1.0 - cosi * cosi);
     if (sint2 > 1.0) {
-        return vec3(0.0, 0.0, 0.0); // 非物理的简化处理
+        return vec3(0.0, 0.0, 0.0);
     }
     float k = sqrt(1.0 - sint2);
     vec3 refractDir = eta * I + (eta * cosi - k) * faceNormal;
@@ -338,7 +338,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
         for (int i = 0; i < 3; i++) {
             vec3 light_dir = normalize(lights[i] - p);
             float light_dist = length(lights[i] - p);
-            vec3 shadow_origin = dot(light_dir, n) < 0.0 ? p - n * MIN_EPSILON : p + n * MIN_EPSILON;
+            vec3 shadow_origin = dot(light_dir, n) < 0.0 ? p - n * ep : p + n * ep;
             float attenuation = 1;
             if (shadow_intersect(shadow_origin, light_dir, light_dist)) continue;
              
@@ -356,7 +356,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
             vec3 refract_dir = custom_refract(segment.direction, n, hit.material.refractive.x, 1.0);
             if (length(refract_dir) > 0.0001) {
                 refract_dir = normalize(refract_dir);
-                vec3 offset = dot(refract_dir, n) < 0.0 ? -n * MIN_EPSILON : n * MIN_EPSILON;
+                vec3 offset = dot(refract_dir, n) < 0.0 ? -n * ep : n * ep;
                 vec3 next_origin = p + offset;
                 vec3 next_throughput = segment.throughput * hit.material.albedo.w;
                 stack[stackSize++] = PathSegment(next_origin, refract_dir, next_throughput, segment.depth + 1);
@@ -364,9 +364,9 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
             else{
                 //处理全反射
                 vec3 reflect_dir = normalize(reflect(segment.direction, n));
-                vec3 offset = dot(reflect_dir, n) < 0.0 ? -n * MIN_EPSILON : n * MIN_EPSILON;
+                vec3 offset = dot(reflect_dir, n) < 0.0 ? -n * ep : n * ep;
                 vec3 next_origin = p + offset;
-                vec3 next_throughput = segment.throughput * 1;
+                vec3 next_throughput = segment.throughput * hit.material.albedo.w;
                 stack[stackSize++] = PathSegment(next_origin, reflect_dir, next_throughput, segment.depth + 1);
                 skip_reflect = true;
             }
@@ -374,7 +374,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
 
         if (hit.material.albedo.z > 0.0 && stackSize < MAX_STACK_SIZE && skip_reflect == false) {
             vec3 next_dir = normalize(reflect(segment.direction, n));
-            vec3 offset = dot(next_dir, n) < 0.0 ? -n * MIN_EPSILON : n * MIN_EPSILON;
+            vec3 offset = dot(next_dir, n) < 0.0 ? -n * ep : n * ep;
             vec3 next_origin = p + offset;
             vec3 next_throughput = segment.throughput * hit.material.albedo.z;
             stack[stackSize++] = PathSegment(next_origin, next_dir, next_throughput, segment.depth + 1);
