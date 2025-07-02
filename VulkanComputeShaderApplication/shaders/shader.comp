@@ -72,15 +72,33 @@ layout(std140, binding = 6) readonly buffer ModelSSBO {
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-const int MAX_DEPTH = 4;
+const int MAX_DEPTH = 20;
 const int MAX_STACK_SIZE = MAX_DEPTH * 2 ;
 const vec3 BACKGROUND_COLOR = vec3(0.2, 0.7, 0.8);
-const float MIN_EPSILON = 0.00001;
+const float MIN_EPSILON = 0.0001;//0.00001;
 const int WIDTH = 1024;
 const int HEIGHT = 768;
 const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
 const bool draw_sphere = false;
+const bool draw_floor = true;
+
+// volume stack结构体
+struct VolumeStackElement {
+    Material material; // 为了适应原有代码结构将material_index修改为直接存完整材质，后续可以优化
+    bool topmost;
+    bool odd_parity;
+};
+// 体积栈上限常量
+const int MAX_VOLUME_STACK = 64;
+// 用于判断volume stack中的结构体是否相等
+bool isEqualMaterial(Material a, Material b) {
+    return (a.albedo == b.albedo &&
+            a.diffuse_specular == b.diffuse_specular &&
+            a.refractive == b.refractive);
+}
+
+
 
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
     // implement the bbox intersect for optimization
@@ -187,19 +205,22 @@ void scene_intersect(vec3 orig, vec3 dir, out SceneHit nearest) {
     nearest.hit = false;
     nearest.distance = 1e10;
     // 地板
-    if (abs(dir.y) > MIN_EPSILON) {
-        float t = -(orig.y + 4.0) / dir.y;
-        if (t > MIN_EPSILON && t < nearest.distance) {
-            vec3 p = orig + dir * t;
-            if (abs(p.x) < 10.0 && p.z < -10.0 && p.z > -30.0) {
-                nearest.hit = true;
-                nearest.distance = t;
-                nearest.point = p;
-                nearest.normal = vec3(0.0, 1.0, 0.0);
-                vec3 color = (mod(floor(p.x * 0.5 + 1024.0) + floor(p.z * 0.5), 2.0) == 0.0) ? vec3(0.3) : vec3(0.3, 0.2, 0.1);
-                nearest.material.albedo = vec4(2.0, 0.0, 0.0, 0.0);
-                nearest.material.diffuse_specular = vec4(color, 1.0);
-                nearest.material.refractive = vec4(1.0, 0.0, 0.0, 0.0);
+    if(draw_floor){
+        if (abs(dir.y) > MIN_EPSILON) {
+            float t = -(orig.y + 4.0) / dir.y;
+            if (t > MIN_EPSILON && t < nearest.distance) {
+                vec3 p = orig + dir * t;
+                if (abs(p.x) < 10.0 && p.z < -5.0 && p.z > -30.0) {
+                    nearest.hit = true;
+                    nearest.distance = t;
+                    nearest.point = p;
+                    nearest.normal = vec3(0.0, 1.0, 0.0);
+                    //vec3 color = (mod(floor(p.x * 0.5 + 1024.0) + floor(p.z * 0.5), 2.0) == 0.0) ? vec3(0.3) : vec3(0.3, 0.2, 0.1);
+                    vec3 color = vec3(0.3);
+                    nearest.material.albedo = vec4(2.0, 0.0, 0.0, 0.0);
+                    nearest.material.diffuse_specular = vec4(color, 1.0);
+                    nearest.material.refractive = vec4(1.0, 0.0, 0.0, 0.0);
+                }
             }
         }
     }
@@ -298,10 +319,10 @@ vec2 direction_to_uv(vec3 dir) {
     return vec2(u, v);
 }
 
-float getDynamicEpsilon(float distance) {
+//float getDynamicEpsilon(float distance) {
     // 基础偏移 + 距离比例因子 × 距离
-    return MIN_EPSILON + 0.0000001 * distance;
-}
+    //return MIN_EPSILON + 0.0000001 * distance;
+//}
 
 vec3 cast_ray(vec3 orig, vec3 dir) {
     // TODO-finished
@@ -334,7 +355,7 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
         vec3 specular = vec3(0.0);
         vec3 lights[3] = {ubo.light0.xyz, ubo.light1.xyz, ubo.light2.xyz};
         float lightsintensity[3] = {ubo.light0.w,ubo.light1.w,ubo.light2.w};
-        float ep = getDynamicEpsilon(distance(p,ubo.camPos.xyz));
+        float ep = MIN_EPSILON;
         for (int i = 0; i < 3; i++) {
             vec3 light_dir = normalize(lights[i] - p);
             float light_dist = length(lights[i] - p);

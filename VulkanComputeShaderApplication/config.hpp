@@ -62,6 +62,40 @@ constexpr int fudanLogoNormalinterpolation = 0;
 Model FudanLogo(fudanlogoMaterial, fudanLogoNormalinterpolation);
 ModelInfo fudanlogoInfo(FudanLogo, "assets/fudanlogo-mesh.obj", fudanlogoScale, fudanlogoRotation, fudanlogoTranslation);
 
+// 玻璃杯配置
+constexpr Material glassMaterial = { 
+    {0.0,0.3, 0.05, 0.9}, 
+    //{0.6, 0.7, 0.8, 80.0},
+    {0.95, 0.95, 0.95, 80.0},
+    {1.5, 0.0, 0.0, 0.0} 
+};
+constexpr Material whiskyMaterial = {
+    {0.3f, 0.4f, 0.05f, 0.7f},          // Albedo: 中等漫反射、中等高光、中等反射、中等折射
+    {0.9f, 0.6f, 0.3f, 20.0f},         // Diffuse: 琥珀色漫反射，中高光泽度
+    {1.2f, 0.0f, 0.0f, 0.0f}           // Refractive: 低折射率（模拟浑浊液体）
+};
+constexpr Material iceMaterial = {
+    {0.05f, 0.4f, 0.2f, 0.8f},            // Albedo: 低漫反射、中等高光、中等反射、高折射
+    {0.8f, 0.85f, 0.9f, 20.0f},       // Diffuse: 淡蓝色漫反射，中低光泽度
+    {1.31f, 0.0f, 0.0f, 0.0f}          // Refractive: 冰的折射率（~1.31）
+};
+constexpr glm::vec3 glassScale = { 1.0f, 1.0f, 1.0f };
+constexpr glm::vec3 glassRotation = { 0.0f, 0.0f, 0.0f };
+constexpr glm::vec3 glassTranslation = { 0.0f, -2.0f, -8.0f };
+constexpr int glassNormalinterpolation = 1;
+Model Glass(glassMaterial, glassNormalinterpolation);
+ModelInfo glassInfo(Glass, "assets/glass_0.01.obj", glassScale, glassRotation, glassTranslation);
+
+Model Water(whiskyMaterial, glassNormalinterpolation);
+ModelInfo waterInfo(Water, "assets/water.obj", glassScale, glassRotation, glassTranslation);
+
+Model ice(iceMaterial, glassNormalinterpolation);
+ModelInfo iceInfo(ice, "assets/ice.obj", glassScale, glassRotation, glassTranslation);
+
 // 导入模型的列表
-std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
-//std::vector<ModelInfo> modelList = { asschercutInfo };
+//std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
+std::vector<ModelInfo> modelList = { //glassInfo,
+                                     //waterInfo,
+                                     //iceInfo，
+                                      duckInfo
+                                     };
