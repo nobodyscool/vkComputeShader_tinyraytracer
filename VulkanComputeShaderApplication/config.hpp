@@ -84,7 +84,7 @@ constexpr glm::vec3 glassRotation = { 0.0f, 0.0f, 0.0f };
 constexpr glm::vec3 glassTranslation = { 0.0f, -2.0f, -8.0f };
 constexpr int glassNormalinterpolation = 1;
 Model Glass(glassMaterial, glassNormalinterpolation);
-ModelInfo glassInfo(Glass, "assets/glass_0.01.obj", glassScale, glassRotation, glassTranslation);
+ModelInfo glassInfo(Glass, "assets/glass.obj", glassScale, glassRotation, glassTranslation);
 
 Model Water(whiskyMaterial, glassNormalinterpolation);
 ModelInfo waterInfo(Water, "assets/water.obj", glassScale, glassRotation, glassTranslation);
@@ -94,8 +94,8 @@ ModelInfo iceInfo(ice, "assets/ice.obj", glassScale, glassRotation, glassTransla
 
 // 导入模型的列表
 //std::vector<ModelInfo> modelList = {asschercutInfo ,bunnyInfo ,dragonInfo,venusInfo ,fudanlogoInfo };
-std::vector<ModelInfo> modelList = { //glassInfo,
-                                     //waterInfo,
-                                     //iceInfo，
-                                      duckInfo
+std::vector<ModelInfo> modelList = { glassInfo,
+                                     waterInfo,
+                                     iceInfo
+                                     //duckInfo
                                      };

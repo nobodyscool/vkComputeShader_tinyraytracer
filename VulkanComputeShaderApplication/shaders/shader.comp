@@ -82,15 +82,16 @@ const float GAMMA = 2.2;
 const float PI = 3.14159265358979323846;
 const bool draw_sphere = false;
 const bool draw_floor = true;
+const Material air_material = Material(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0), vec4(1.0, 0.0, 0.0, 0.0));
 
-// volume stack结构体
 struct VolumeStackElement {
     Material material; // 为了适应原有代码结构将material_index修改为直接存完整材质，后续可以优化
     bool topmost;
     bool odd_parity;
 };
 // 体积栈上限常量
-const int MAX_VOLUME_STACK = 64;
+const int MAX_VOLUME_STACK = 32;
+
 // 用于判断volume stack中的结构体是否相等
 bool isEqualMaterial(Material a, Material b) {
     return (a.albedo == b.albedo &&
@@ -98,7 +99,100 @@ bool isEqualMaterial(Material a, Material b) {
             a.refractive == b.refractive);
 }
 
+// 查找栈中相同材质的位置 ,不存在时返回-1
+int FindMaterialInStack(VolumeStackElement stack[MAX_VOLUME_STACK], int stack_pos, Material material) {
+    for (int i = stack_pos; i >= 0; i--) {
+        if (isEqualMaterial(stack[i].material,material)) {
+            return i;
+        }
+    }
+    return -1;
+}
 
+// volume stack push
+void Push(inout VolumeStackElement stack[MAX_VOLUME_STACK], 
+            int stack_pos,
+            Material material,
+            out Material incident_material, 
+            out Material outgoing_material, 
+            out bool leaving)
+{
+    // 查找相同材质
+    int prev_same = FindMaterialInStack(stack, stack_pos, material);
+    bool odd_parity = true;
+    if (prev_same >= 0) {
+        stack[prev_same].topmost = false;
+        odd_parity = !stack[prev_same].odd_parity;
+    }
+    // 查找当前最顶层材质
+    int idx = -1;
+    for (int i = stack_pos; i >= 0; i--) {
+        if (!isEqualMaterial(stack[i].material,material)  && 
+            stack[i].odd_parity && stack[i].topmost) {
+            idx = i;
+            break;
+        }
+    }
+    // 压入新元素
+    if (stack_pos < MAX_VOLUME_STACK - 1) {
+        stack_pos++;
+        stack[stack_pos].material = material;
+        stack[stack_pos].topmost = true;
+        stack[stack_pos].odd_parity = odd_parity;
+    }
+    // 设置进出材质
+    if (odd_parity) {
+        incident_material = (idx >= 0) ? stack[idx].material : air_material;
+        outgoing_material = material;
+    } else {
+        outgoing_material = (idx >= 0) ? stack[idx].material : air_material;
+        incident_material = (idx < prev_same) ? material : outgoing_material;
+    }
+    leaving = !odd_parity;
+}
+
+void Pop(inout VolumeStackElement stack[MAX_VOLUME_STACK], 
+            int stack_pos, 
+            bool leaving)
+{
+    // 弹出栈顶元素
+    if (stack_pos >= 0) {
+        // 记录当前栈顶材质
+        VolumeStackElement top_element = stack[stack_pos];
+        
+        // 简单出栈：减少栈指针
+        stack_pos--;
+        // 如果标记为 "leaving"，需要移除前一个相同的材质
+        if (leaving && stack_pos >= 0) {
+            int idx = -1;
+            // 从栈顶向下查找相同材质
+            for (int i = stack_pos; i >= 0; i--) {
+                if (isEqualMaterial(stack[i].material,top_element.material)) {
+                    idx = i;
+                    break;
+                }
+            }
+            // 找到后，移除该条目
+            if (idx >= 0) {
+                // 将后面的元素前移一位（填补空缺）
+                for (int i = idx + 1; i <= stack_pos; i++) {
+                    stack[i - 1] = stack[i];
+                }
+                // 减少栈指针两次（弹出两个元素）
+                if (stack_pos > 0) {
+                    stack_pos--;
+                }
+            }
+        }
+        // 更新该材质在栈中的前一个实例为 "topmost"
+        for (int i = stack_pos; i >= 0; i--) {
+            if (isEqualMaterial(stack[i].material,top_element.material)) {
+                stack[i].topmost = true;
+                break;
+            }
+        }
+    }
+}
 
 bool ray_aabb_intersect(vec3 orig, vec3 dir, vec3 invDir, vec3 bboxMin, vec3 bboxMax) {
     // implement the bbox intersect for optimization
@@ -309,6 +403,8 @@ struct PathSegment {
     vec3 direction;
     vec3 throughput;
     int depth;
+    int stack_pos;
+    VolumeStackElement volume_stack[MAX_VOLUME_STACK];
 };
 
 vec2 direction_to_uv(vec3 dir) {
@@ -327,11 +423,26 @@ vec2 direction_to_uv(vec3 dir) {
 vec3 cast_ray(vec3 orig, vec3 dir) {
     // TODO-finished
     // You need to modify this function to add background
+    // 初始化一个体积栈,压入空气材质
+    VolumeStackElement vstack[MAX_VOLUME_STACK];
+    int stack_pos = 0;
+    vstack[0] = VolumeStackElement(air_material,true,true);
 
     vec3 color = vec3(0.0);
     PathSegment stack[MAX_STACK_SIZE];
     int stackSize = 0;
-    stack[stackSize++] = PathSegment(orig, dir, vec3(1.0), 0);
+
+    PathSegment rootSegment;
+    rootSegment.origin = orig;
+    rootSegment.direction = dir;
+    rootSegment.throughput = vec3(1.0);
+    rootSegment.depth = 0;
+    rootSegment.stack_pos = 0;
+    for (int i = 0; i < MAX_VOLUME_STACK; i++) {
+        rootSegment.volume_stack[i] = VolumeStackElement(air_material, false, false);
+    }
+    stack[stackSize++] = rootSegment;
+    //stack[stackSize++] = PathSegment(orig, dir, vec3(1.0), 0, stack_pos,vstack);
 
     while (stackSize > 0) {
         PathSegment segment = stack[--stackSize];
@@ -346,6 +457,27 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
             //vec3 bg_color = BACKGROUND_COLOR;
             color += segment.throughput * bg_color;
             continue;
+        }
+        VolumeStackElement localStack[MAX_VOLUME_STACK];
+        int localStackSize = segment.stack_pos;
+        for (int i = 0; i < MAX_VOLUME_STACK; i++) {
+            localStack[i] = segment.volume_stack[i];
+        }
+
+        // Push 材质到堆栈
+        Material incident_material;
+        Material outgoing_material;
+        bool leaving;
+        Push(localStack, localStackSize, hit.material, incident_material, outgoing_material, leaving);
+        float eta_out = outgoing_material.refractive.x;
+        float eta_in = incident_material.refractive.x;
+        //获取当前所处的材质（即栈顶有效材质）
+        Material current_material;
+        for (int i = localStackSize - 1; i >= 0; i--) {
+            if (localStack[i].odd_parity) {
+                current_material = localStack[i].material;
+                break;
+            }
         }
       
         vec3 p = hit.point;
@@ -370,35 +502,80 @@ vec3 cast_ray(vec3 orig, vec3 dir) {
             float spec = attenuation * pow(max(0.0, dot(reflect_dir, v)), hit.material.diffuse_specular.w);
             specular += spec * hit.material.diffuse_specular.rgb;// 乘上衰减
         }
-
+         
+       
         color += segment.throughput * (diffuse * hit.material.albedo.x + specular * hit.material.albedo.y);
+        
         bool skip_reflect = false;
+
+
+        // 折射处理：使用当前材质和目标材质的折射率
         if (hit.material.albedo.w > 0.0 && stackSize < MAX_STACK_SIZE) {
-            vec3 refract_dir = custom_refract(segment.direction, n, hit.material.refractive.x, 1.0);
+            vec3 refract_dir = custom_refract(segment.direction, n, eta_out,eta_in );
             if (length(refract_dir) > 0.0001) {
                 refract_dir = normalize(refract_dir);
                 vec3 offset = dot(refract_dir, n) < 0.0 ? -n * ep : n * ep;
                 vec3 next_origin = p + offset;
-                vec3 next_throughput = segment.throughput * hit.material.albedo.w;
-                stack[stackSize++] = PathSegment(next_origin, refract_dir, next_throughput, segment.depth + 1);
+                vec3 next_throughput = segment.throughput * outgoing_material.albedo.w;
+
+                PathSegment new_segment;
+                new_segment.origin = next_origin;
+                new_segment.direction = refract_dir;
+                new_segment.throughput = next_throughput;
+                new_segment.depth = segment.depth + 1;
+                for (int i = 0; i < MAX_VOLUME_STACK; i++) {
+                    new_segment.volume_stack[i] = localStack[i];
+                }
+                new_segment.stack_pos = localStackSize;
+                stack[stackSize++] = new_segment;
+                //stack[stackSize++] = PathSegment(next_origin, refract_dir, next_throughput, segment.depth + 1,stack_pos,vstack);
             }
             else{
                 //处理全反射
                 vec3 reflect_dir = normalize(reflect(segment.direction, n));
                 vec3 offset = dot(reflect_dir, n) < 0.0 ? -n * ep : n * ep;
                 vec3 next_origin = p + offset;
-                vec3 next_throughput = segment.throughput * hit.material.albedo.w;
-                stack[stackSize++] = PathSegment(next_origin, reflect_dir, next_throughput, segment.depth + 1);
+                vec3 next_throughput = segment.throughput * outgoing_material.albedo.w;
+
+                PathSegment new_segment;
+                new_segment.origin = next_origin;
+                new_segment.direction = reflect_dir;
+                new_segment.throughput = next_throughput;
+                new_segment.depth = segment.depth + 1;
+
+                for (int i = 0; i < MAX_VOLUME_STACK; i++) {
+                    new_segment.volume_stack[i] = localStack[i];
+                }
+                new_segment.stack_pos = localStackSize;
+                Pop(new_segment.volume_stack, new_segment.stack_pos, leaving);
+                stack[stackSize++] = new_segment;
+
+                //stack[stackSize++] = PathSegment(next_origin, reflect_dir, next_throughput, segment.depth + 1,stack_pos,vstack);
                 skip_reflect = true;
             }
         }
-
+        // 反射
         if (hit.material.albedo.z > 0.0 && stackSize < MAX_STACK_SIZE && skip_reflect == false) {
             vec3 next_dir = normalize(reflect(segment.direction, n));
             vec3 offset = dot(next_dir, n) < 0.0 ? -n * ep : n * ep;
             vec3 next_origin = p + offset;
-            vec3 next_throughput = segment.throughput * hit.material.albedo.z;
-            stack[stackSize++] = PathSegment(next_origin, next_dir, next_throughput, segment.depth + 1);
+            vec3 next_throughput = segment.throughput * outgoing_material.albedo.z;
+            PathSegment new_segment;
+            new_segment.origin = next_origin;
+            new_segment.direction = next_dir;
+            new_segment.throughput = next_throughput;
+            new_segment.depth = segment.depth + 1;
+            for (int i = 0; i < MAX_VOLUME_STACK; i++) {
+                new_segment.volume_stack[i] = localStack[i];
+            }
+            new_segment.stack_pos = localStackSize;
+            Pop(new_segment.volume_stack, new_segment.stack_pos, leaving);
+            stack[stackSize++] = new_segment;
+            //stack[stackSize++] = PathSegment(next_origin, next_dir, next_throughput, segment.depth + 1,stack_pos,vstack);
+        }
+        // 如果是透射并离开当前材质，Pop 堆栈
+        if (hit.material.albedo.w > 0.0 && leaving && stackSize < MAX_STACK_SIZE) {
+            Pop(localStack, localStackSize, leaving);
         }
     }
 
